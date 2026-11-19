@@ -274,19 +274,14 @@ export const WelcomeOnboardingModal: React.FC<WelcomeOnboardingModalProps> = ({
             <div className="relative z-10">
               {/* Brand Logo Header */}
               <div className="flex items-center gap-2.5">
-                <div
-                  className="w-9 h-9 rounded-[11px] bg-white flex items-center justify-center shadow-[0_2px_10px_rgba(0,0,0,0.08)]"
-                  aria-hidden="true"
-                >
-                  {/* Minimalist Black Bunny Silhouette SVG */}
-                  <svg className="w-5 h-5 text-[#111111]" viewBox="0 0 32 32" fill="currentColor">
-                    <path
-                      d="M11.1 4.2c-1.5 0-2.5 1.5-2.2 3.7l1.05 6.35C8.1 15.7 7 17.9 7 20.4 7 24.75 11 28 16 28s9-3.25 9-7.6c0-2.5-1.1-4.7-2.95-6.15l1.05-6.35c.3-2.2-.7-3.7-2.2-3.7-1.35 0-2.45 1.15-2.85 3.05l-1.02 4.85c-.34-.05-.68-.08-1.03-.08s-.69.03-1.03.08l-1.02-4.85c-.4-1.9-1.5-3.05-2.85-3.05z"
-                    />
-                    <circle cx="13.2" cy="20.2" r="1.15" fill="#FFFFFF" />
-                    <circle cx="18.8" cy="20.2" r="1.15" fill="#FFFFFF" />
-                  </svg>
-                </div>
+                <img
+                  src="/logos/logo.png"
+                  alt="Ovilo"
+                  className="w-9 h-9 rounded-[11px] object-cover shadow-[0_2px_10px_rgba(0,0,0,0.12)] border border-black/10"
+                  onError={(e) => {
+                    (e.currentTarget as HTMLImageElement).src = '/logos/app_logo.png';
+                  }}
+                />
                 <span className="font-['Plus_Jakarta_Sans',sans-serif] text-[21px] font-extrabold tracking-[-0.03em] text-[#111111]">
                   Ovilo
                 </span>
