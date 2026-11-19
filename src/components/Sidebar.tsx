@@ -125,15 +125,6 @@ export const Sidebar: React.FC<SidebarProps> = ({
         );
       })}
 
-      {/* Storage Meter */}
-      <div className="store">
-        <b>Storage</b>
-        <div className="bar">
-          <b style={{ width: '64%' }} />
-        </div>
-        <small>128 GB of 200 GB used</small>
-      </div>
-
       {/* User Cloudinary Profile or Sign In Quick Access */}
       {!isGuest ? (
         <div
