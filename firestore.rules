@@ -1,0 +1,119 @@
+rules_version = '2';
+
+// ===============================================================
+// Cloud Firestore Security Rules for Ovilo
+// Enforces strict authentication, owner isolation, schema validation,
+// and protects against privilege escalation, unauthorized access, and DoS.
+// ===============================================================
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // Helper Functions
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+
+    function isOwner(userId) {
+      return isAuthenticated() && request.auth.uid == userId;
+    }
+
+    function validStringLength(text, minLen, maxLen) {
+      return text is string && text.size() >= minLen && text.size() <= maxLen;
+    }
+
+    function isValidUrl(url) {
+      return url is string &&
+        (url.matches("^https://.*") || url.matches("^http://.*"));
+    }
+
+    function isValidEmail(email) {
+      return email is string &&
+        email.matches("^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\\.[a-zA-Z]{2,}$");
+    }
+
+    function isValidUsername(username) {
+      return username is string &&
+        username.size() >= 3 &&
+        username.size() <= 30 &&
+        username.matches("^[a-zA-Z0-9._-]+$");
+    }
+
+    function isValidTheme(theme) {
+      return theme is string &&
+        theme in ['classic', 'dark', 'light', 'cobalt'];
+    }
+
+    function isValidTimestamp(t) {
+      return t is timestamp &&
+        t <= request.time + duration.value(5, 'm');
+    }
+
+    // Domain Validators
+    function isValidUser(data) {
+      return data.keys().hasOnly(['name', 'username', 'email', 'avatarUrl', 'bio', 'theme', 'createdAt', 'updatedAt']) &&
+             data.keys().hasAll(['name', 'username', 'avatarUrl', 'bio', 'theme', 'createdAt', 'updatedAt']) &&
+             validStringLength(data.name, 1, 100) &&
+             isValidUsername(data.username) &&
+             (!('email' in data) || (data.email is string && data.email.size() <= 254 && (data.email.size() == 0 || isValidEmail(data.email)))) &&
+             data.avatarUrl is string &&
+             data.avatarUrl.size() <= 2048 &&
+             (data.avatarUrl.size() == 0 || isValidUrl(data.avatarUrl)) &&
+             data.bio is string &&
+             data.bio.size() <= 500 &&
+             isValidTheme(data.theme) &&
+             isValidTimestamp(data.createdAt) &&
+             isValidTimestamp(data.updatedAt);
+    }
+
+    function areUserImmutableFieldsUnchanged() {
+      return request.resource.data.createdAt == resource.data.createdAt &&
+             request.resource.data.username == resource.data.username;
+    }
+
+    function isValidUserData(data) {
+      return data.keys().hasOnly(['movieFavorites', 'watchHistory', 'musicFavorites', 'theme', 'avatarUrl', 'updatedAt']) &&
+             data.keys().hasAll(['movieFavorites', 'watchHistory', 'musicFavorites', 'theme', 'avatarUrl', 'updatedAt']) &&
+             data.movieFavorites is list &&
+             data.movieFavorites.size() <= 1000 &&
+             data.watchHistory is list &&
+             data.watchHistory.size() <= 1000 &&
+             data.musicFavorites is list &&
+             data.musicFavorites.size() <= 1000 &&
+             isValidTheme(data.theme) &&
+             data.avatarUrl is string &&
+             data.avatarUrl.size() <= 2048 &&
+             (data.avatarUrl.size() == 0 || isValidUrl(data.avatarUrl)) &&
+             isValidTimestamp(data.updatedAt);
+    }
+
+    // Rules Definitions
+    match /users/{userId} {
+      allow read: if isOwner(userId);
+      allow create: if isOwner(userId) && isValidUser(request.resource.data);
+      allow update: if isOwner(userId) && isValidUser(request.resource.data) && areUserImmutableFieldsUnchanged();
+      allow delete: if isOwner(userId);
+    }
+
+    match /userData/{userId} {
+      allow read: if isOwner(userId);
+      allow create: if isOwner(userId) && isValidUserData(request.resource.data);
+      allow update: if isOwner(userId) && isValidUserData(request.resource.data);
+      allow delete: if isOwner(userId);
+    }
+
+    match /system_updates/{docId} {
+      allow read: if true;
+      allow write: if false;
+    }
+
+    match /appUpdates/{docId} {
+      allow read: if true;
+      allow write: if false;
+    }
+
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}

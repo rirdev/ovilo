@@ -1,0 +1,814 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>OVILO • Admin Console & Release Manager</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com">
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+  <script src="https://cdn.tailwindcss.com"></script>
+  <!-- Firebase Compat Scripts (Runs 100% reliably on file:// and http:// in all browsers) -->
+  <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          fontFamily: {
+            sans: ['"Plus Jakarta Sans"', 'sans-serif'],
+            mono: ['"JetBrains Mono"', 'monospace'],
+          },
+          colors: {
+            ovDark: '#090A0F',
+            ovCard: '#17181D',
+            ovSubcard: '#202127',
+            ovBlue: '#2F6BFE',
+            ovLime: '#DCFF7D',
+          }
+        }
+      }
+    }
+  </script>
+  <style>
+    body {
+      background-color: #090A0F;
+      color: #F8FAFC;
+      font-family: 'Plus Jakarta Sans', sans-serif;
+    }
+    .custom-scrollbar::-webkit-scrollbar {
+      width: 6px;
+      height: 6px;
+    }
+    .custom-scrollbar::-webkit-scrollbar-track {
+      background: rgba(255, 255, 255, 0.02);
+    }
+    .custom-scrollbar::-webkit-scrollbar-thumb {
+      background: rgba(255, 255, 255, 0.15);
+      border-radius: 9999px;
+    }
+    .custom-scrollbar::-webkit-scrollbar-thumb:hover {
+      background: rgba(255, 255, 255, 0.25);
+    }
+  </style>
+</head>
+<body class="min-h-screen bg-[#090A0F] text-slate-100 flex flex-col selection:bg-[#2F6BFE] selection:text-white">
+
+  <!-- Top Navigation Bar -->
+  <header class="sticky top-0 z-40 bg-[#090A0F]/90 backdrop-blur-md border-b border-white/8 px-6 py-4 flex items-center justify-between">
+    <div class="flex items-center gap-4">
+      <div class="w-10 h-10 rounded-2xl bg-gradient-to-br from-[#2F6BFE] to-[#1E40AF] flex items-center justify-center font-black text-white text-lg tracking-wider shadow-lg shadow-[#2F6BFE]/25">
+        OV
+      </div>
+      <div>
+        <div class="flex items-center gap-2">
+          <h1 class="text-base font-extrabold tracking-tight text-white">OVILO ADMIN</h1>
+          <span class="text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full bg-[#2F6BFE]/15 text-[#60A5FA] border border-[#2F6BFE]/30">Control Plane</span>
+        </div>
+        <p class="text-xs text-slate-400">User Directory & Live App Update Push Manager</p>
+      </div>
+    </div>
+
+    <!-- Right status & tabs -->
+    <div class="flex items-center gap-3">
+      <div class="flex items-center gap-2 px-3 py-1.5 rounded-full bg-[#17181D] border border-white/8 text-xs font-medium text-slate-300">
+        <span id="connIndicator" class="w-2 h-2 rounded-full bg-amber-400 animate-pulse"></span>
+        <span id="connText">Connecting to Cloud Firestore...</span>
+      </div>
+
+      <!-- Navigation tabs -->
+      <div class="flex items-center p-1 rounded-full bg-[#17181D] border border-white/8 text-xs font-bold">
+        <button id="tabUsersBtn" onclick="switchTab('users')" class="px-4 py-1.5 rounded-full bg-[#2F6BFE] text-white shadow-sm transition-all cursor-pointer">
+          Users Directory
+        </button>
+        <button id="tabUpdatesBtn" onclick="switchTab('updates')" class="px-4 py-1.5 rounded-full text-slate-400 hover:text-white transition-all cursor-pointer">
+          Push Updates
+        </button>
+      </div>
+    </div>
+  </header>
+
+  <!-- Main Container -->
+  <main class="flex-1 max-w-7xl w-full mx-auto px-6 py-8">
+
+    <!-- ==================== TAB 1: USERS DIRECTORY ==================== -->
+    <section id="usersTab" class="space-y-6">
+      
+      <!-- Stats Overview -->
+      <div class="grid grid-cols-1 sm:grid-cols-4 gap-4">
+        <div class="bg-[#17181D] border border-white/8 rounded-2xl p-5 shadow-lg">
+          <div class="text-xs font-bold text-slate-400 uppercase tracking-wider">Total Registered Users</div>
+          <div class="mt-2 flex items-baseline gap-2">
+            <span id="statTotalUsers" class="text-3xl font-black text-white">0</span>
+            <span class="text-xs text-emerald-400 font-semibold">Active in Cloud</span>
+          </div>
+        </div>
+
+        <div class="bg-[#17181D] border border-white/8 rounded-2xl p-5 shadow-lg">
+          <div class="text-xs font-bold text-slate-400 uppercase tracking-wider">Cloud Storage DB</div>
+          <div class="mt-2 flex items-baseline gap-2">
+            <span class="text-xl font-black text-[#60A5FA]">Cloud Firestore</span>
+            <span class="text-xs text-slate-500 font-mono">ovilio-e81b3</span>
+          </div>
+        </div>
+
+        <div class="bg-[#17181D] border border-white/8 rounded-2xl p-5 shadow-lg">
+          <div class="text-xs font-bold text-slate-400 uppercase tracking-wider">Current Local Build</div>
+          <div class="mt-2 flex items-baseline gap-2">
+            <span class="text-2xl font-black text-white">v0.1.0</span>
+            <span class="text-xs text-slate-400 font-medium">Desktop Linux/x86</span>
+          </div>
+        </div>
+
+        <div class="bg-[#17181D] border border-white/8 rounded-2xl p-5 shadow-lg">
+          <div class="text-xs font-bold text-slate-400 uppercase tracking-wider">Target Remote Version</div>
+          <div class="mt-2 flex items-baseline gap-2">
+            <span id="statRemoteVersion" class="text-2xl font-black text-[#DCFF7D]">v0.1.0</span>
+            <span id="statRemoteStatus" class="text-xs text-slate-400 font-medium">Configured</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Users Filter and Search Bar -->
+      <div class="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-4 bg-[#17181D] border border-white/8 rounded-2xl p-4 shadow-lg">
+        <div class="relative flex-1 max-w-md">
+          <input 
+            type="text" 
+            id="userSearchInput" 
+            oninput="filterUsers()" 
+            placeholder="Search by username, name, or email..." 
+            class="w-full bg-[#202127] border border-white/8 rounded-xl px-4 py-2.5 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-[#2F6BFE] transition-colors"
+          />
+        </div>
+        <div class="flex items-center gap-2">
+          <button onclick="refreshUsers()" class="px-4 py-2 rounded-xl bg-[#202127] hover:bg-[#282932] border border-white/8 text-xs font-bold text-slate-300 hover:text-white transition-all cursor-pointer flex items-center gap-2">
+            <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/></svg>
+            Refresh List
+          </button>
+        </div>
+      </div>
+
+      <!-- Users Grid / Table -->
+      <div class="bg-[#17181D] border border-white/8 rounded-3xl p-6 shadow-xl">
+        <div class="flex items-center justify-between mb-4">
+          <h2 class="text-sm font-extrabold text-white uppercase tracking-wider">Registered Accounts</h2>
+          <span id="userCountBadge" class="text-xs font-bold px-2.5 py-1 rounded-full bg-[#202127] border border-white/8 text-slate-400">0 accounts</span>
+        </div>
+
+        <div class="overflow-x-auto custom-scrollbar">
+          <table class="w-full text-left text-xs">
+            <thead>
+              <tr class="border-b border-white/8 text-slate-400 font-bold uppercase tracking-wider">
+                <th class="py-3 px-4">User</th>
+                <th class="py-3 px-4">Username</th>
+                <th class="py-3 px-4">Auth Security</th>
+                <th class="py-3 px-4">Theme</th>
+                <th class="py-3 px-4">Created Date</th>
+                <th class="py-3 px-4">Last Activity</th>
+                <th class="py-3 px-4 text-right">Actions</th>
+              </tr>
+            </thead>
+            <tbody id="usersTableBody" class="divide-y divide-white/5">
+              <tr>
+                <td colspan="7" class="py-12 text-center text-slate-500">
+                  Connecting to Firestore and loading accounts...
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+
+
+    <!-- ==================== TAB 2: PUSH UPDATES MANAGER ==================== -->
+    <section id="updatesTab" class="space-y-6 hidden">
+      
+      <!-- Current Live Release Banner -->
+      <div class="bg-gradient-to-r from-[#17181D] via-[#1a1b22] to-[#17181D] border border-white/8 rounded-3xl p-6 sm:p-8 shadow-xl flex flex-col md:flex-row md:items-center justify-between gap-6">
+        <div>
+          <div class="flex items-center gap-3">
+            <span class="px-3 py-1 rounded-full text-[10px] font-extrabold uppercase tracking-wider bg-emerald-500/20 text-emerald-400 border border-emerald-500/30">Live In Cloud</span>
+            <span id="currentLiveBadge" class="text-xl sm:text-2xl font-black text-white">v0.1.0</span>
+          </div>
+          <h2 id="currentLiveTitle" class="text-base font-bold text-slate-200 mt-2">Initial Release</h2>
+          <p id="currentLiveDate" class="text-xs text-slate-500 mt-1">Published: Not published yet</p>
+          <div id="currentLiveUrl" class="text-xs text-[#60A5FA] font-mono mt-2 truncate max-w-xl">No download URL set</div>
+        </div>
+
+        <div class="flex flex-col sm:flex-row items-stretch sm:items-center gap-3">
+          <button onclick="fillFormWithCurrent()" class="px-4 py-2.5 rounded-xl bg-[#202127] hover:bg-[#282932] border border-white/8 text-xs font-bold text-slate-200 hover:text-white transition-all cursor-pointer">
+            Edit Current Release
+          </button>
+          <button onclick="clearCurrentRelease()" class="px-4 py-2.5 rounded-xl bg-rose-500/10 hover:bg-rose-500/20 border border-rose-500/30 text-xs font-bold text-rose-400 hover:text-rose-300 transition-all cursor-pointer">
+            Reset to Up-to-Date (Clear)
+          </button>
+        </div>
+      </div>
+
+      <!-- Release Creator Form & Live Preview Grid -->
+      <div class="grid grid-cols-1 lg:grid-cols-12 gap-6">
+        
+        <!-- Form (7 Cols) -->
+        <div class="lg:col-span-7 bg-[#17181D] border border-white/8 rounded-3xl p-6 sm:p-7 shadow-xl space-y-5">
+          <div class="flex items-center justify-between border-b border-white/8 pb-4">
+            <div>
+              <h3 class="text-base font-extrabold text-white">Create & Push App Update</h3>
+              <p class="text-xs text-slate-400 mt-0.5">Pushing an update will trigger real-time notifications on all Ovilo app instances.</p>
+            </div>
+            <span class="px-3 py-1 rounded-full text-xs font-bold bg-[#2F6BFE]/15 text-[#60A5FA] border border-[#2F6BFE]/30">Real-time Push</span>
+          </div>
+
+          <form id="updateForm" onsubmit="handlePublishUpdate(event)" class="space-y-4">
+            
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div>
+                <label class="block text-xs font-bold text-slate-300 mb-1.5 uppercase tracking-wider">New Version String *</label>
+                <input 
+                  type="text" 
+                  id="targetVersion" 
+                  required 
+                  placeholder="e.g. 0.2.0" 
+                  oninput="updatePreview()"
+                  class="w-full bg-[#202127] border border-white/8 rounded-xl px-4 py-2.5 text-xs text-white font-mono focus:outline-none focus:border-[#2F6BFE]"
+                />
+                <p class="text-[10px] text-slate-500 mt-1">Must be higher than current version (v0.1.0) to prompt users.</p>
+              </div>
+
+              <div>
+                <label class="block text-xs font-bold text-slate-300 mb-1.5 uppercase tracking-wider">Release Title *</label>
+                <input 
+                  type="text" 
+                  id="releaseTitle" 
+                  required 
+                  placeholder="e.g. Ovilo v0.2.0 - Major Performance Upgrade" 
+                  oninput="updatePreview()"
+                  class="w-full bg-[#202127] border border-white/8 rounded-xl px-4 py-2.5 text-xs text-white focus:outline-none focus:border-[#2F6BFE]"
+                />
+              </div>
+            </div>
+
+            <!-- Primary Download Link -->
+            <div>
+              <div class="flex items-center justify-between mb-1.5">
+                <label class="block text-xs font-bold text-slate-300 uppercase tracking-wider">Primary Download URL (GitHub Release / Direct Link) *</label>
+                <button type="button" onclick="autoFillGitHubUrls()" class="text-[11px] font-bold text-[#60A5FA] hover:text-[#93C5FD] flex items-center gap-1 cursor-pointer transition-colors">
+                  <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"/></svg>
+                  Auto-fill GitHub URLs (rirdev/ovilo)
+                </button>
+              </div>
+              <input 
+                type="url" 
+                id="downloadUrl" 
+                required 
+                placeholder="https://github.com/rirdev/ovilo/releases/tag/v0.1.0" 
+                oninput="updatePreview()"
+                class="w-full bg-[#202127] border border-white/8 rounded-xl px-4 py-2.5 text-xs text-white font-mono focus:outline-none focus:border-[#2F6BFE]"
+              />
+              <p class="text-[10px] text-slate-500 mt-1">Users will be directed here when they tap "Download Update".</p>
+            </div>
+
+            <!-- Specific Platform Asset Links (APK, Windows, Linux) -->
+            <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
+              <div>
+                <label class="block text-xs font-bold text-slate-300 mb-1.5 uppercase tracking-wider">Android .apk URL</label>
+                <input 
+                  type="url" 
+                  id="apkUrl" 
+                  placeholder="https://.../ovilo-release.apk" 
+                  class="w-full bg-[#202127] border border-white/8 rounded-xl px-4 py-2.5 text-xs text-white font-mono focus:outline-none focus:border-[#2F6BFE]"
+                />
+              </div>
+              <div>
+                <label class="block text-xs font-bold text-slate-300 mb-1.5 uppercase tracking-wider">Windows .exe URL</label>
+                <input 
+                  type="url" 
+                  id="windowsUrl" 
+                  placeholder="https://.../ovilo_x64-setup.exe" 
+                  class="w-full bg-[#202127] border border-white/8 rounded-xl px-4 py-2.5 text-xs text-white font-mono focus:outline-none focus:border-[#2F6BFE]"
+                />
+              </div>
+              <div>
+                <label class="block text-xs font-bold text-slate-300 mb-1.5 uppercase tracking-wider">Linux AppImage / .deb URL</label>
+                <input 
+                  type="url" 
+                  id="linuxDebUrl" 
+                  placeholder="https://.../OVILO_amd64.AppImage" 
+                  class="w-full bg-[#202127] border border-white/8 rounded-xl px-4 py-2.5 text-xs text-white font-mono focus:outline-none focus:border-[#2F6BFE]"
+                />
+              </div>
+            </div>
+
+            <!-- Changelog & Release Notes -->
+            <div>
+              <label class="block text-xs font-bold text-slate-300 mb-1.5 uppercase tracking-wider">Changelog & What's New *</label>
+              <textarea 
+                id="releaseNotes" 
+                rows="4" 
+                required 
+                oninput="updatePreview()"
+                class="w-full bg-[#202127] border border-white/8 rounded-xl p-4 text-xs text-white font-mono focus:outline-none focus:border-[#2F6BFE]"
+                placeholder="• Added new music discovery engine&#10;• Cloud syncing improvements&#10;• Fixed card theme background colors"
+              ></textarea>
+            </div>
+
+            <!-- Active Trigger and Mandatory flags -->
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div class="flex items-center gap-3 p-3.5 rounded-2xl bg-[#202127] border border-white/8">
+                <input type="checkbox" id="isActive" checked class="w-4 h-4 rounded text-[#2F6BFE] bg-[#17181D] border-white/20 focus:ring-0 cursor-pointer" />
+                <div>
+                  <label for="isActive" class="text-xs font-bold text-white cursor-pointer">Live Trigger Active</label>
+                  <p class="text-[10px] text-slate-400">If unchecked, the release is saved as draft without alerting users.</p>
+                </div>
+              </div>
+
+              <div class="flex items-center gap-3 p-3.5 rounded-2xl bg-[#202127] border border-white/8">
+                <input type="checkbox" id="isMandatory" class="w-4 h-4 rounded text-[#2F6BFE] bg-[#17181D] border-white/20 focus:ring-0 cursor-pointer" />
+                <div>
+                  <label for="isMandatory" class="text-xs font-bold text-white cursor-pointer">Critical / Mandatory Update</label>
+                  <p class="text-[10px] text-slate-400">If checked, users will be strongly urged to update before proceeding.</p>
+                </div>
+              </div>
+            </div>
+
+            <!-- Submit button -->
+            <div class="pt-2">
+              <button 
+                type="submit" 
+                id="publishBtn" 
+                class="w-full py-3.5 px-6 rounded-2xl bg-gradient-to-r from-[#2F6BFE] to-[#1E40AF] hover:from-[#3B82F6] hover:to-[#2563EB] text-white font-black text-sm shadow-xl shadow-[#2F6BFE]/30 flex items-center justify-center gap-2 cursor-pointer transition-all active:scale-[0.99]"
+              >
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8"/></svg>
+                Publish Release & Push Notification Now
+              </button>
+            </div>
+
+          </form>
+        </div>
+
+        <!-- Live Preview (5 Cols) -->
+        <div class="lg:col-span-5 space-y-4">
+          <div class="bg-[#17181D] border border-white/8 rounded-3xl p-6 shadow-xl space-y-4">
+            <div class="flex items-center justify-between border-b border-white/8 pb-3">
+              <h3 class="text-xs font-extrabold text-slate-300 uppercase tracking-wider">Live User Popup Preview</h3>
+              <span class="text-[10px] font-mono text-emerald-400">Exact App Rendering</span>
+            </div>
+            
+            <p class="text-xs text-slate-400">Here is how the update modal dialog will appear inside every user's Ovilo app:</p>
+
+            <!-- App Mock Popup Card -->
+            <div class="rounded-3xl bg-[#17181D] border border-white/15 p-6 shadow-2xl relative space-y-4">
+              <!-- Header -->
+              <div class="flex items-start justify-between">
+                <div class="flex items-center gap-3">
+                  <div class="w-10 h-10 rounded-2xl bg-[#2F6BFE]/20 text-[#60A5FA] border border-[#2F6BFE]/30 flex items-center justify-center font-black">
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M9 19l3 3m0 0l3-3m-3 3V10"/></svg>
+                  </div>
+                  <div>
+                    <span id="previewBadge" class="text-[10px] font-black uppercase tracking-wider px-2 py-0.5 rounded-full bg-[#2F6BFE]/20 text-[#60A5FA] border border-[#2F6BFE]/30">Update v0.2.0</span>
+                    <h4 id="previewTitle" class="text-sm font-extrabold text-white mt-1">Ovilo v0.2.0 - Performance & Cloud Sync</h4>
+                  </div>
+                </div>
+                <span class="text-slate-500 hover:text-white cursor-pointer text-sm">✕</span>
+              </div>
+
+              <!-- Notes Box -->
+              <div class="bg-[#202127] border border-white/8 rounded-2xl p-4 text-xs font-mono text-slate-300 space-y-1 whitespace-pre-line max-h-40 overflow-y-auto" id="previewNotes">
+                • Instant Cloud Sync for favorites & watch history
+                • Obsidian dark theme and streamlined 8pt spacing
+                • Enhanced YouTube and high-definition video playback
+              </div>
+
+              <!-- Buttons -->
+              <div class="flex items-center gap-2 pt-2">
+                <button type="button" class="flex-1 py-2.5 rounded-xl bg-[#2F6BFE] hover:bg-[#3B82F6] text-white font-extrabold text-xs shadow-md shadow-[#2F6BFE]/20 flex items-center justify-center gap-1.5 cursor-pointer">
+                  <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/></svg>
+                  Download Update
+                </button>
+                <button type="button" class="py-2.5 px-3.5 rounded-xl bg-white/5 hover:bg-white/10 text-slate-300 font-bold text-xs border border-white/8 cursor-pointer">
+                  Website
+                </button>
+                <button type="button" class="py-2.5 px-3 rounded-xl bg-white/5 hover:bg-white/10 text-slate-400 font-bold text-xs border border-white/8 cursor-pointer">
+                  Later
+                </button>
+              </div>
+            </div>
+
+            <div class="p-4 rounded-2xl bg-[#202127] border border-white/8 text-[11px] text-slate-400 space-y-2">
+              <div class="font-bold text-slate-300 flex items-center gap-1.5">
+                <svg class="w-3.5 h-3.5 text-emerald-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg>
+                Behavior in Ovilo App:
+              </div>
+              <ul class="list-disc pl-4 space-y-1 text-slate-400">
+                <li>When user clicks <strong>"Remind Me Later"</strong>, the popup closes without annoying the user repeatedly.</li>
+                <li>The update remains visible and accessible under <strong>Settings → App Updates</strong>.</li>
+                <li>When the user installs the new version, Settings will automatically show <strong>"Up to date"</strong>.</li>
+              </ul>
+            </div>
+
+          </div>
+        </div>
+
+      </div>
+
+    </section>
+
+  </main>
+
+  <!-- User Details Drawer / Modal -->
+  <div id="userModal" class="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm hidden flex items-center justify-center p-4">
+    <div class="bg-[#17181D] border border-white/10 rounded-3xl max-w-lg w-full p-6 shadow-2xl space-y-5 animate-in fade-in duration-150">
+      <div class="flex items-center justify-between border-b border-white/8 pb-4">
+        <div class="flex items-center gap-3">
+          <div id="modalAvatar" class="w-12 h-12 rounded-2xl bg-slate-800 overflow-hidden flex items-center justify-center font-black text-sm"></div>
+          <div>
+            <h3 id="modalName" class="text-base font-extrabold text-white"></h3>
+            <p id="modalUsername" class="text-xs text-[#60A5FA] font-mono"></p>
+          </div>
+        </div>
+        <button onclick="closeUserModal()" class="w-8 h-8 rounded-full bg-white/5 hover:bg-white/10 flex items-center justify-center text-slate-400 hover:text-white cursor-pointer">✕</button>
+      </div>
+
+      <div class="space-y-3 text-xs">
+        <div class="flex justify-between py-1.5 border-b border-white/5">
+          <span class="text-slate-400">Email:</span>
+          <span id="modalEmail" class="font-medium text-white"></span>
+        </div>
+        <div class="flex justify-between py-1.5 border-b border-white/5">
+          <span class="text-slate-400">Theme:</span>
+          <span id="modalTheme" class="font-medium text-white capitalize"></span>
+        </div>
+        <div class="flex justify-between py-1.5 border-b border-white/5">
+          <span class="text-slate-400">Account Created:</span>
+          <span id="modalCreated" class="font-medium text-slate-300 font-mono"></span>
+        </div>
+        <div class="flex justify-between py-1.5 border-b border-white/5">
+          <span class="text-slate-400">Last Synced / Updated:</span>
+          <span id="modalUpdated" class="font-medium text-slate-300 font-mono"></span>
+        </div>
+        <div class="py-1.5">
+          <span class="text-slate-400 block mb-1">User Bio:</span>
+          <div id="modalBio" class="p-3 rounded-xl bg-[#202127] border border-white/5 text-slate-300"></div>
+        </div>
+      </div>
+
+      <div class="pt-2 flex justify-end">
+        <button onclick="closeUserModal()" class="px-5 py-2 rounded-xl bg-[#202127] hover:bg-[#282932] border border-white/8 font-bold text-xs text-white cursor-pointer">Close</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Toast Notification -->
+  <div id="toast" class="fixed bottom-6 right-6 z-50 bg-[#202127] border border-[#2F6BFE]/40 text-white px-5 py-3.5 rounded-2xl shadow-2xl flex items-center gap-3 transition-all duration-300 transform translate-y-20 opacity-0 pointer-events-none">
+    <div id="toastIcon" class="w-6 h-6 rounded-full bg-[#2F6BFE]/20 text-[#60A5FA] flex items-center justify-center flex-shrink-0">✓</div>
+    <span id="toastMsg" class="text-xs font-bold"></span>
+  </div>
+
+  <!-- Firebase Scripts & Standard Logic (Compatible with all protocols: file:// and http://) -->
+  <script>
+    // Ovilo Cloud Project Configuration
+    const firebaseConfig = {
+      apiKey: "AIzaSyAAu_PG4nNvQx0OiGN5KR6J9a3UnFii0iU",
+      authDomain: "ovilio-e81b3.firebaseapp.com",
+      databaseURL: "https://ovilio-e81b3-default-rtdb.firebaseio.com",
+      projectId: "ovilio-e81b3",
+      storageBucket: "ovilio-e81b3.firebasestorage.app",
+      messagingSenderId: "64014432578",
+      appId: "1:64014432578:web:6139c41e8e518ce6c2f0db"
+    };
+
+    // Initialize Firebase
+    if (!firebase.apps.length) {
+      firebase.initializeApp(firebaseConfig);
+    }
+    const db = firebase.firestore();
+
+    let usersCache = [];
+    let currentLiveUpdate = null;
+
+    // Toast utility
+    window.showToast = (msg, isSuccess = true) => {
+      const toast = document.getElementById('toast');
+      const toastMsg = document.getElementById('toastMsg');
+      const toastIcon = document.getElementById('toastIcon');
+      toastMsg.textContent = msg;
+      toastIcon.className = `w-6 h-6 rounded-full flex items-center justify-center flex-shrink-0 ${isSuccess ? 'bg-emerald-500/20 text-emerald-400' : 'bg-rose-500/20 text-rose-400'}`;
+      toastIcon.textContent = isSuccess ? '✓' : '!';
+      toast.classList.remove('translate-y-20', 'opacity-0', 'pointer-events-none');
+      setTimeout(() => {
+        toast.classList.add('translate-y-20', 'opacity-0', 'pointer-events-none');
+      }, 3500);
+    };
+
+    // Tab switcher
+    window.switchTab = (tab) => {
+      const usersTab = document.getElementById('usersTab');
+      const updatesTab = document.getElementById('updatesTab');
+      const tabUsersBtn = document.getElementById('tabUsersBtn');
+      const tabUpdatesBtn = document.getElementById('tabUpdatesBtn');
+
+      if (tab === 'users') {
+        usersTab.classList.remove('hidden');
+        updatesTab.classList.add('hidden');
+        tabUsersBtn.className = 'px-4 py-1.5 rounded-full bg-[#2F6BFE] text-white shadow-sm transition-all cursor-pointer';
+        tabUpdatesBtn.className = 'px-4 py-1.5 rounded-full text-slate-400 hover:text-white transition-all cursor-pointer';
+      } else {
+        usersTab.classList.add('hidden');
+        updatesTab.classList.remove('hidden');
+        tabUpdatesBtn.className = 'px-4 py-1.5 rounded-full bg-[#2F6BFE] text-white shadow-sm transition-all cursor-pointer';
+        tabUsersBtn.className = 'px-4 py-1.5 rounded-full text-slate-400 hover:text-white transition-all cursor-pointer';
+      }
+    };
+
+    // 1. Listen to Users Collection
+    const listenToUsers = () => {
+      db.collection('users').onSnapshot((snapshot) => {
+        const users = [];
+        snapshot.forEach((doc) => {
+          users.push({ id: doc.id, ...doc.data() });
+        });
+        usersCache = users;
+        renderUsers(users);
+        document.getElementById('statTotalUsers').textContent = users.length;
+        document.getElementById('userCountBadge').textContent = `${users.length} account${users.length === 1 ? '' : 's'}`;
+        document.getElementById('connIndicator').className = 'w-2 h-2 rounded-full bg-emerald-400 animate-pulse';
+        document.getElementById('connText').textContent = 'Connected (Live)';
+      }, (err) => {
+        console.error('Users listener error:', err);
+        document.getElementById('connIndicator').className = 'w-2 h-2 rounded-full bg-rose-500';
+        document.getElementById('connText').textContent = 'Connection Error: ' + err.message;
+      });
+    };
+
+    // Render Users Table
+    function renderUsers(users) {
+      const tbody = document.getElementById('usersTableBody');
+      if (users.length === 0) {
+        tbody.innerHTML = `<tr><td colspan="7" class="py-12 text-center text-slate-500 font-medium">No registered user accounts found.</td></tr>`;
+        return;
+      }
+
+      tbody.innerHTML = users.map(user => {
+        const avatar = user.avatarUrl 
+          ? `<img src="${user.avatarUrl}" class="w-8 h-8 rounded-full object-cover" onerror="this.onerror=null;this.parentNode.innerHTML='<div class=\\'w-8 h-8 rounded-full bg-[#2F6BFE]/20 text-[#60A5FA] font-bold flex items-center justify-center\\'>${(user.name || user.username || 'U').slice(0, 2).toUpperCase()}</div>'"/>`
+          : `<div class="w-8 h-8 rounded-full bg-[#2F6BFE]/20 text-[#60A5FA] font-bold flex items-center justify-center">${(user.name || user.username || 'U').slice(0, 2).toUpperCase()}</div>`;
+        
+        const createdDate = user.createdAt?.seconds 
+          ? new Date(user.createdAt.seconds * 1000).toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' })
+          : (typeof user.createdAt === 'number' ? new Date(user.createdAt).toLocaleDateString() : '—');
+
+        const updatedDate = user.updatedAt?.seconds 
+          ? new Date(user.updatedAt.seconds * 1000).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) + ', ' + new Date(user.updatedAt.seconds * 1000).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })
+          : '—';
+
+        const themeBadge = user.theme === 'cobalt' 
+          ? `<span class="px-2 py-0.5 rounded-md bg-[#2F6BFE]/15 text-[#60A5FA] font-bold text-[10px]">Cobalt</span>`
+          : user.theme === 'light'
+          ? `<span class="px-2 py-0.5 rounded-md bg-amber-500/15 text-amber-300 font-bold text-[10px]">Light</span>`
+          : `<span class="px-2 py-0.5 rounded-md bg-white/10 text-slate-300 font-bold text-[10px]">Dark</span>`;
+
+        return `
+          <tr class="hover:bg-white/[0.02] transition-colors">
+            <td class="py-3 px-4 flex items-center gap-3">
+              ${avatar}
+              <span class="font-extrabold text-white">${escapeHtml(user.name || 'Anonymous')}</span>
+            </td>
+            <td class="py-3 px-4 font-mono text-[#60A5FA]">@${escapeHtml(user.username || user.id)}</td>
+            <td class="py-3 px-4 text-emerald-400 font-mono text-[11px]"><span class="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-md bg-emerald-500/10"><span class="w-1.5 h-1.5 rounded-full bg-emerald-400"></span>SHA-256 Hashed</span></td>
+            <td class="py-3 px-4">${themeBadge}</td>
+            <td class="py-3 px-4 text-slate-400 font-mono">${createdDate}</td>
+            <td class="py-3 px-4 text-slate-400 font-mono">${updatedDate}</td>
+            <td class="py-3 px-4 text-right">
+              <button onclick="openUserModal('${user.id}')" class="px-3 py-1 rounded-lg bg-[#202127] hover:bg-[#2F6BFE] hover:text-white text-slate-300 font-bold text-[11px] transition-all cursor-pointer">
+                View
+              </button>
+            </td>
+          </tr>
+        `;
+      }).join('');
+    }
+
+    // Filter Users
+    window.filterUsers = () => {
+      const q = document.getElementById('userSearchInput').value.trim().toLowerCase();
+      if (!q) {
+        renderUsers(usersCache);
+        return;
+      }
+      const filtered = usersCache.filter(u => 
+        (u.username && u.username.toLowerCase().includes(q)) ||
+        (u.name && u.name.toLowerCase().includes(q)) ||
+        (u.email && u.email.toLowerCase().includes(q))
+      );
+      renderUsers(filtered);
+    };
+
+    window.refreshUsers = async () => {
+      try {
+        const snap = await db.collection('users').get();
+        const users = [];
+        snap.forEach(d => users.push({ id: d.id, ...d.data() }));
+        usersCache = users;
+        renderUsers(users);
+        window.showToast('User directory refreshed!');
+      } catch (e) {
+        window.showToast('Error refreshing: ' + e.message, false);
+      }
+    };
+
+    // User Modal
+    window.openUserModal = (userId) => {
+      const user = usersCache.find(u => u.id === userId);
+      if (!user) return;
+      document.getElementById('modalName').textContent = user.name || 'Anonymous';
+      document.getElementById('modalUsername').textContent = `@${user.username || user.id}`;
+      document.getElementById('modalEmail').textContent = user.email || 'Not registered';
+      document.getElementById('modalTheme').textContent = user.theme || 'dark';
+      document.getElementById('modalBio').textContent = user.bio || 'No bio provided.';
+      
+      const createdDate = user.createdAt?.seconds 
+        ? new Date(user.createdAt.seconds * 1000).toLocaleString()
+        : (typeof user.createdAt === 'number' ? new Date(user.createdAt).toLocaleString() : '—');
+      document.getElementById('modalCreated').textContent = createdDate;
+
+      const updatedDate = user.updatedAt?.seconds 
+        ? new Date(user.updatedAt.seconds * 1000).toLocaleString()
+        : '—';
+      document.getElementById('modalUpdated').textContent = updatedDate;
+
+      const avatarBox = document.getElementById('modalAvatar');
+      if (user.avatarUrl) {
+        avatarBox.innerHTML = `<img src="${user.avatarUrl}" class="w-full h-full object-cover"/>`;
+      } else {
+        avatarBox.textContent = (user.name || user.username || 'U').slice(0, 2).toUpperCase();
+      }
+
+      document.getElementById('userModal').classList.remove('hidden');
+    };
+
+    window.closeUserModal = () => {
+      document.getElementById('userModal').classList.add('hidden');
+    };
+
+    // 2. Listen to System Updates Collection
+    const listenToUpdates = () => {
+      db.collection('system_updates').doc('latest').onSnapshot((snap) => {
+        if (snap.exists) {
+          const data = snap.data();
+          currentLiveUpdate = data;
+          document.getElementById('statRemoteVersion').textContent = `v${data.version || '0.1.0'}`;
+          document.getElementById('statRemoteStatus').textContent = 'Pushed';
+          document.getElementById('currentLiveBadge').textContent = `v${data.version}`;
+          document.getElementById('currentLiveTitle').textContent = data.title || 'Untitled Update';
+          const pubDate = data.publishedAt?.seconds 
+            ? new Date(data.publishedAt.seconds * 1000).toLocaleString()
+            : (data.releaseDate || 'Just now');
+          document.getElementById('currentLiveDate').textContent = `Published: ${pubDate}`;
+          document.getElementById('currentLiveUrl').textContent = `Download: ${data.downloadUrl || 'No URL'}`;
+        } else {
+          currentLiveUpdate = null;
+          document.getElementById('statRemoteVersion').textContent = 'v0.1.0';
+          document.getElementById('statRemoteStatus').textContent = 'Up-to-Date (None)';
+          document.getElementById('currentLiveBadge').textContent = 'v0.1.0 (None)';
+          document.getElementById('currentLiveTitle').textContent = 'No remote update currently pushed';
+          document.getElementById('currentLiveDate').textContent = 'Apps will show "Up to date"';
+          document.getElementById('currentLiveUrl').textContent = '—';
+        }
+      });
+    };
+
+    // Auto fill GitHub Release URLs
+    window.autoFillGitHubUrls = () => {
+      const ver = (document.getElementById('targetVersion').value || '0.1.0').trim().replace(/^v/, '');
+      const baseRelease = `https://github.com/rirdev/ovilo/releases/tag/v${ver}`;
+      const baseDownload = `https://github.com/rirdev/ovilo/releases/download/v${ver}`;
+      
+      document.getElementById('downloadUrl').value = baseRelease;
+      document.getElementById('apkUrl').value = `${baseDownload}/ovilo.apk`;
+      document.getElementById('windowsUrl').value = `${baseDownload}/Ovilo-${ver}-Setup.exe`;
+      document.getElementById('linuxDebUrl').value = `${baseDownload}/OVILO_${ver}_amd64.deb`;
+      
+      if (!document.getElementById('releaseTitle').value) {
+        document.getElementById('releaseTitle').value = `Ovilo v${ver} Official Release`;
+      }
+      window.updatePreview();
+      window.showToast(`Auto-filled download URLs for v${ver}!`);
+    };
+
+    // Live preview sync
+    window.updatePreview = () => {
+      const version = document.getElementById('targetVersion').value || '0.2.0';
+      const title = document.getElementById('releaseTitle').value || 'App Update';
+      const notes = document.getElementById('releaseNotes').value || 'Bug fixes and performance improvements.';
+      document.getElementById('previewBadge').textContent = `Update v${version}`;
+      document.getElementById('previewTitle').textContent = title;
+      document.getElementById('previewNotes').textContent = notes;
+    };
+
+    window.fillFormWithCurrent = () => {
+      if (!currentLiveUpdate) {
+        window.showToast('No published update currently in cloud.', false);
+        return;
+      }
+      document.getElementById('targetVersion').value = currentLiveUpdate.version || '';
+      document.getElementById('releaseTitle').value = currentLiveUpdate.title || '';
+      document.getElementById('downloadUrl').value = currentLiveUpdate.downloadUrl || '';
+      document.getElementById('apkUrl').value = currentLiveUpdate.apkUrl || '';
+      document.getElementById('linuxDebUrl').value = currentLiveUpdate.linuxDebUrl || '';
+      document.getElementById('windowsUrl').value = currentLiveUpdate.windowsUrl || '';
+      document.getElementById('releaseNotes').value = currentLiveUpdate.notes || '';
+      document.getElementById('isMandatory').checked = Boolean(currentLiveUpdate.isMandatory);
+      window.updatePreview();
+      window.showToast('Form filled with current live release data!');
+    };
+
+    // Publish Update Action
+    window.handlePublishUpdate = async (e) => {
+      e.preventDefault();
+      const version = document.getElementById('targetVersion').value.trim();
+      const title = document.getElementById('releaseTitle').value.trim();
+      const downloadUrl = document.getElementById('downloadUrl').value.trim();
+      const apkUrl = document.getElementById('apkUrl').value.trim();
+      const linuxDebUrl = document.getElementById('linuxDebUrl').value.trim();
+      const windowsUrl = document.getElementById('windowsUrl').value.trim();
+      const notes = document.getElementById('releaseNotes').value.trim();
+      const isActive = document.getElementById('isActive') ? document.getElementById('isActive').checked : true;
+      const isMandatory = document.getElementById('isMandatory').checked;
+
+      if (!version || !title || !downloadUrl) {
+        window.showToast('Please fill in required fields.', false);
+        return;
+      }
+
+      const publishBtn = document.getElementById('publishBtn');
+      publishBtn.disabled = true;
+      publishBtn.innerHTML = `
+        <svg class="animate-spin -ml-1 mr-2 h-4 w-4 text-white" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>
+        Pushing update to Firestore...
+      `;
+
+      try {
+        const now = new Date();
+        const payload = {
+          version,
+          title,
+          downloadUrl,
+          apkUrl: apkUrl || downloadUrl,
+          linuxDebUrl: linuxDebUrl || downloadUrl,
+          windowsUrl: windowsUrl || downloadUrl,
+          notes,
+          isActive,
+          isMandatory,
+          releaseDate: now.toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' }),
+          publishedAt: firebase.firestore.FieldValue.serverTimestamp(),
+          publishedBy: 'admin_panel'
+        };
+
+        await db.collection('system_updates').doc('latest').set(payload);
+        window.showToast(`Update v${version} published successfully! Real-time notifications dispatched to all Ovilo apps.`);
+      } catch (err) {
+        console.error('Failed to publish update:', err);
+        window.showToast(`Error publishing update: ${err.message}`, false);
+      } finally {
+        publishBtn.disabled = false;
+        publishBtn.innerHTML = `
+          <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8"/></svg>
+          Publish Release & Push Notification Now
+        `;
+      }
+    };
+
+    // Reset / Clear release
+    window.clearCurrentRelease = async () => {
+      if (!confirm('Are you sure you want to clear the active release? Apps will immediately consider themselves "Up to date" unless another version is pushed.')) {
+        return;
+      }
+      try {
+        await db.collection('system_updates').doc('latest').delete();
+        window.showToast('Active release cleared from Cloud Firestore. Apps are now marked up-to-date.');
+      } catch (err) {
+        console.error('Failed to clear release:', err);
+        window.showToast(`Error: ${err.message}`, false);
+      }
+    };
+
+    function escapeHtml(str) {
+      if (!str) return '';
+      return String(str).replace(/[&<>"']/g, function(m) {
+        switch (m) {
+          case '&': return '&amp;';
+          case '<': return '&lt;';
+          case '>': return '&gt;';
+          case '"': return '&quot;';
+          case "'": return '&#39;';
+        }
+      });
+    }
+
+    // Initialize listeners
+    listenToUsers();
+    listenToUpdates();
+    window.updatePreview();
+  </script>
+</body>
+</html>
