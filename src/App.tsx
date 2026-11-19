@@ -503,12 +503,21 @@ const AppContent: React.FC = () => {
   useEffect(() => {
     let isMounted = true;
 
-    // Display Wave loader for 3 seconds as requested, then dismiss
+    // Display Welcome to Ovilo splash animation, then dismiss and check onboarding status
     const splashTimer = setTimeout(() => {
       if (isMounted) {
         setIsAppLoading(false);
+        try {
+          const hasCompletedOnboarding = localStorage.getItem('ovilo_onboarding_completed') === 'true';
+          const profile = getLocalProfile();
+          if (!hasCompletedOnboarding || !profile) {
+            setShowOnboarding(true);
+          }
+        } catch {
+          setShowOnboarding(true);
+        }
       }
-    }, 3000);
+    }, 2600);
 
     const initBackgroundSync = async () => {
       try {
@@ -958,6 +967,9 @@ const AppContent: React.FC = () => {
         onComplete={(profile, cloudData) => {
           setShowOnboarding(false);
           setUserProfile(profile);
+          try {
+            localStorage.setItem('ovilo_onboarding_completed', 'true');
+          } catch {}
 
           // 1. Restore Theme Preference
           const targetTheme = cloudData?.theme || profile.theme;

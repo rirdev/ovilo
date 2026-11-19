@@ -70,13 +70,11 @@ export const AppStartupSplash: React.FC<{ isLoading: boolean }> = ({ isLoading }
   const isLight = theme === 'light';
   const isCobalt = theme === 'cobalt';
 
-  const themeColors = isLight
+  const bgClass = isLight
     ? 'bg-[#FAFAFA] text-neutral-900'
     : isCobalt
-    ? 'bg-[#090A0F] text-[#2F6BFE]'
-    : theme === 'dark'
-    ? 'bg-[#0B0B0D] text-[#DCFF7D]'
-    : 'bg-[#080808] text-white';
+    ? 'bg-[#090A0F] text-[#60A5FA]'
+    : 'bg-[#090A0F] text-slate-100';
 
   return (
     <AnimatePresence>
@@ -84,11 +82,53 @@ export const AppStartupSplash: React.FC<{ isLoading: boolean }> = ({ isLoading }
         <motion.div
           key="app-startup-splash"
           initial={{ opacity: 1 }}
-          exit={{ opacity: 0 }}
-          transition={{ duration: 0.3, ease: 'easeOut' }}
-          className={`fixed inset-0 z-[9999] flex items-center justify-center select-none theme-self-managed ${themeColors}`}
+          exit={{ opacity: 0, scale: 1.02 }}
+          transition={{ duration: 0.45, ease: [0.16, 1, 0.3, 1] }}
+          className={`fixed inset-0 z-[9999] flex flex-col items-center justify-center select-none theme-self-managed ${bgClass}`}
         >
-          <Wave className="h-12 w-24" />
+          {/* Brand Icon & Glow */}
+          <motion.div
+            initial={{ scale: 0.8, opacity: 0 }}
+            animate={{ scale: 1, opacity: 1 }}
+            transition={{ duration: 0.5, ease: 'easeOut' }}
+            className="relative flex items-center justify-center mb-6"
+          >
+            <div className="absolute w-24 h-24 rounded-full bg-[#2F6BFE]/20 blur-xl"></div>
+            <div className="relative w-16 h-16 rounded-2xl bg-gradient-to-br from-[#2F6BFE] to-[#1E40AF] flex items-center justify-center shadow-xl shadow-[#2F6BFE]/30 overflow-hidden border border-white/10">
+              <img
+                src="/logos/logo.png"
+                alt="Ovilo"
+                className="w-10 h-10 object-contain drop-shadow"
+                onError={(e) => {
+                  e.currentTarget.style.display = 'none';
+                }}
+              />
+            </div>
+          </motion.div>
+
+          {/* Welcome Text */}
+          <motion.div
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.2, duration: 0.4 }}
+            className="text-center space-y-1 mb-8"
+          >
+            <h1 className="text-2xl font-black tracking-tight text-white font-['Plus_Jakarta_Sans',sans-serif]">
+              Welcome to Ovilo
+            </h1>
+            <p className="text-xs text-slate-400 font-medium tracking-wide">
+              Universal Media & Streaming Hub
+            </p>
+          </motion.div>
+
+          {/* Visualizer Wave */}
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            transition={{ delay: 0.3, duration: 0.4 }}
+          >
+            <Wave className="h-8 w-20 text-[#60A5FA]" />
+          </motion.div>
         </motion.div>
       )}
     </AnimatePresence>

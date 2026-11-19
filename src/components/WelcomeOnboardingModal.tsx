@@ -120,6 +120,9 @@ export const WelcomeOnboardingModal: React.FC<WelcomeOnboardingModalProps> = ({
     if (res.data) {
       setResolvedCloudData(res.data);
     }
+    try {
+      localStorage.setItem('ovilo_onboarding_completed', 'true');
+    } catch {}
     setStep('loading');
   };
 
@@ -177,6 +180,9 @@ export const WelcomeOnboardingModal: React.FC<WelcomeOnboardingModalProps> = ({
       theme: 'dark',
       avatarUrl: '',
     });
+    try {
+      localStorage.setItem('ovilo_onboarding_completed', 'true');
+    } catch {}
     setStep('loading');
   };
 
@@ -201,6 +207,9 @@ export const WelcomeOnboardingModal: React.FC<WelcomeOnboardingModalProps> = ({
       theme: 'dark',
       avatarUrl: '',
     });
+    try {
+      localStorage.setItem('ovilo_onboarding_completed', 'true');
+    } catch {}
     setStep('loading');
     setIsSubmitting(false);
   };
@@ -480,28 +489,22 @@ export const WelcomeOnboardingModal: React.FC<WelcomeOnboardingModalProps> = ({
                   </button>
                 </form>
 
-                {/* Social Login Options */}
-                <div className="or my-3">or continue with</div>
-                <div className="socs">
-                  <span
-                    onClick={handleContinueAsGuest}
-                    className="hover:bg-white/5 transition-colors cursor-pointer"
-                  >
-                    <i style={{ background: 'var(--kino-coral, #ff7a64)' }}>G</i>Google
-                  </span>
-                  <span
-                    onClick={handleContinueAsGuest}
-                    className="hover:bg-white/5 transition-colors cursor-pointer"
-                  >
-                    <i style={{ background: 'var(--kino-on, #f2efe9)' }}>A</i>Apple
-                  </span>
-                  <span
-                    onClick={handleContinueAsGuest}
-                    className="hover:bg-white/5 transition-colors cursor-pointer"
-                  >
-                    <i style={{ background: 'var(--kino-mint, #7ae2ba)' }}>GH</i>GitHub
-                  </span>
+                {/* Divider */}
+                <div className="flex items-center gap-3 my-4">
+                  <div className="flex-1 h-px bg-white/10"></div>
+                  <span className="text-[11px] font-semibold text-neutral-400 uppercase tracking-wider">or</span>
+                  <div className="flex-1 h-px bg-white/10"></div>
                 </div>
+
+                {/* Prominent Continue as Guest Button */}
+                <button
+                  type="button"
+                  onClick={handleContinueAsGuest}
+                  className="w-full py-3 px-4 rounded-2xl bg-white/[0.06] hover:bg-white/[0.12] border border-white/10 text-white font-bold text-xs transition-all flex items-center justify-center gap-2 cursor-pointer shadow-sm active:scale-[0.99]"
+                >
+                  <User className="w-4 h-4 text-[var(--kino-yellow,#ffd24d)]" />
+                  <span>Continue as Guest</span>
+                </button>
 
                 {/* Alternate Actions */}
                 <div className="alt mt-4 text-xs text-center text-[var(--kino-on-var,#a9a7a2)]">
@@ -511,20 +514,12 @@ export const WelcomeOnboardingModal: React.FC<WelcomeOnboardingModalProps> = ({
                       <b onClick={() => setMode('signin')} className="text-[var(--kino-yellow,#ffd24d)] cursor-pointer">
                         Sign in
                       </b>
-                      {' · '}
-                      <b onClick={handleContinueAsGuest} className="text-neutral-400 hover:text-white cursor-pointer">
-                        Continue as guest
-                      </b>
                     </span>
                   ) : (
                     <span>
                       New to Ovilo?{' '}
                       <b onClick={() => setMode('signup')} className="text-[var(--kino-yellow,#ffd24d)] cursor-pointer">
                         Create account
-                      </b>
-                      {' · '}
-                      <b onClick={handleContinueAsGuest} className="text-neutral-400 hover:text-white cursor-pointer">
-                        Continue as guest
                       </b>
                     </span>
                   )}

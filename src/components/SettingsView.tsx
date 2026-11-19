@@ -382,7 +382,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
     }, 3500);
   };
 
-  // Handle Logout (Clear active session, wipe client caches, switch to Guest Mode)
+  // Handle Logout (Clear active session, wipe client caches, open Welcome / Auth modal)
   const handleLogout = async () => {
     // 1. Wipe all local user caches and state
     try {
@@ -391,22 +391,12 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
       localStorage.removeItem('ovilo_music_favorites');
       localStorage.removeItem('ovilo_cloud_accounts');
       localStorage.removeItem('ovilo_user_profile');
+      localStorage.removeItem('ovilo_onboarding_completed');
     } catch {}
 
     // 2. Clear active session library across state, storage & Rust backend
     window.dispatchEvent(new Event('ovilo_clear_library'));
 
-    // 3. Switch to guest profile
-    const guestProfile: UserProfile = {
-      name: 'Guest User',
-      isGuest: true,
-      bio: 'Native Media Enthusiast',
-      createdAt: Date.now(),
-    };
-    await saveProfile(guestProfile);
-    setProfile(guestProfile);
-    setEditName('Guest User');
-    setEditBio('Native Media Enthusiast');
     setSignupUsername('');
     setSignupPassword('');
     setSigninIdentifier('');
@@ -416,7 +406,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
     setTimeout(() => {
       setLogoutToast(false);
       window.dispatchEvent(new Event('ovilo_open_login_modal'));
-    }, 600);
+    }, 400);
   };
 
   // Handle Manual Cloud Sync
