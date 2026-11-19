@@ -51,12 +51,12 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
     { name: 'Lo-Fi & Ambient Beats', pct: 10, desc: '13 tracks in music library', color: 'bg-[#a8e6c3]' },
   ];
 
-  // Latest watched item or default Dexter
+  // Latest watched item
   const latestWatched = history.length > 0 ? history[0] : null;
-  const jumpTitle = latestWatched?.title || 'Dexter: Resurrection';
+  const jumpTitle = latestWatched?.title || '';
   const jumpPoster = latestWatched?.poster_path ? getPosterUrl(latestWatched.poster_path, 'w342') : null;
 
-  const username = profile?.username || 'terabyte';
+  const username = profile?.username || 'user';
 
   return (
     <div className="flex flex-col gap-6 w-full max-w-[1400px] mx-auto select-none pb-12 font-['DM_Sans',sans-serif]">
@@ -94,78 +94,111 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
         </div>
       </div>
 
-      {/* 2. Jump Back In Card */}
-      <div className="flex items-center gap-5.5 bg-[#18181a] border border-[#34343a] rounded-[32px] p-5 sm:p-6 shadow-sm">
-        {/* Poster */}
-        <div className="w-[84px] h-[120px] rounded-2xl bg-[#ff7a64] flex items-end p-2 text-[#141414] font-extrabold text-[11px] leading-tight font-['Bricolage_Grotesque',sans-serif] flex-shrink-0 overflow-hidden relative shadow-sm">
-          {jumpPoster ? (
-            <img src={jumpPoster} alt={jumpTitle} className="absolute inset-0 w-full h-full object-cover" />
-          ) : (
-            <span className="relative z-10 uppercase tracking-tighter">
-              DEXTER<br />RESURRECTION
-            </span>
+      {/* 2. Jump Back In / Welcome Card */}
+      {latestWatched ? (
+        <div className="flex items-center gap-5.5 bg-[#18181a] border border-[#34343a] rounded-[32px] p-5 sm:p-6 shadow-sm">
+          {/* Poster */}
+          {jumpPoster && (
+            <div className="w-[84px] h-[120px] rounded-2xl bg-[#222] flex items-end p-2 text-[#141414] font-extrabold text-[11px] leading-tight flex-shrink-0 overflow-hidden relative shadow-sm">
+              <img src={jumpPoster} alt={jumpTitle} className="absolute inset-0 w-full h-full object-cover" />
+            </div>
           )}
-        </div>
 
-        {/* Info */}
-        <div className="flex-1 min-w-0">
-          <div className="flex items-center gap-2 mb-2 text-[12px] text-[#a9a7a2]">
-            <span className="bg-[#ffd24d] text-[#141414] font-extrabold text-[11px] px-2.5 py-1 rounded-full tracking-[0.03em]">
-              JUMP BACK IN
-            </span>
-            <span className="bg-[#2b2b2f] text-[#f2efe9] font-semibold text-[11px] px-2 py-0.5 rounded-full">
-              {latestWatched?.season ? `S${latestWatched.season} : E${latestWatched.episode || 1}` : 'S1 : E5'}
-            </span>
-            <span>Last watched today</span>
+          {/* Info */}
+          <div className="flex-1 min-w-0">
+            <div className="flex items-center gap-2 mb-2 text-[12px] text-[#a9a7a2]">
+              <span className="bg-[#ffd24d] text-[#141414] font-extrabold text-[11px] px-2.5 py-1 rounded-full tracking-[0.03em]">
+                JUMP BACK IN
+              </span>
+              {latestWatched.media_type === 'tv' && (
+                <span className="bg-[#2b2b2f] text-[#f2efe9] font-semibold text-[11px] px-2 py-0.5 rounded-full">
+                  {latestWatched.season ? `S${latestWatched.season} : E${latestWatched.episode || 1}` : 'Series'}
+                </span>
+              )}
+              <span>Last watched recently</span>
+            </div>
+            <h2 className="text-[30px] font-extrabold text-[#f2efe9] font-['Bricolage_Grotesque',sans-serif] mb-1 truncate">
+              {jumpTitle}
+            </h2>
+            <p className="text-[13px] text-[#a9a7a2] mb-3">
+              Pick up right where you left off with 1080p high-fidelity streaming.
+            </p>
+            <div className="w-full max-w-[320px] h-1.5 rounded-full bg-[#2b2b2f] overflow-hidden">
+              <div className="h-full rounded-full bg-[#ffd24d] w-[68%]" />
+            </div>
           </div>
-          <h2 className="text-[30px] font-extrabold text-[#f2efe9] font-['Bricolage_Grotesque',sans-serif] mb-1 truncate">
-            {jumpTitle}
-          </h2>
-          <p className="text-[13px] text-[#a9a7a2] mb-3">
-            Pick up right where you left off with 1080p high-fidelity streaming.
-          </p>
-          <div className="w-full max-w-[320px] h-1.5 rounded-full bg-[#2b2b2f] overflow-hidden">
-            <div className="h-full rounded-full bg-[#ffd24d] w-[68%]" />
-          </div>
-        </div>
 
-        {/* Buttons */}
-        <div className="flex items-center gap-2.5 flex-shrink-0">
-          <button
-            onClick={() => {
-              if (latestWatched && onPlayHistory) {
-                onPlayHistory(latestWatched);
-              } else {
-                onNavigateTab('movies');
-              }
-            }}
-            className="flex items-center gap-2 h-11 px-5 rounded-full bg-[#ffd24d] text-[#141414] font-bold text-[14px] hover:brightness-105 transition-all cursor-pointer border-0 shadow-sm"
-          >
-            <Play className="w-4 h-4 fill-current" />
-            <span>Resume Now</span>
-          </button>
-          <button
-            onClick={() => {
-              if (latestWatched && onSelectMedia) {
-                onSelectMedia({
-                  id: latestWatched.id,
-                  title: latestWatched.title,
-                  media_type: latestWatched.media_type,
-                  poster_path: latestWatched.poster_path,
-                  backdrop_path: latestWatched.backdrop_path,
-                  overview: '',
-                  vote_average: 8.5,
-                });
-              } else {
-                onNavigateTab('movies');
-              }
-            }}
-            className="h-11 px-5 rounded-full bg-[#2b2b2f] text-[#f2efe9] font-semibold text-[14px] hover:bg-[#34343a] transition-all cursor-pointer border-0"
-          >
-            Details
-          </button>
+          {/* Buttons */}
+          <div className="flex items-center gap-2.5 flex-shrink-0">
+            <button
+              onClick={() => {
+                if (latestWatched && onPlayHistory) {
+                  onPlayHistory(latestWatched);
+                } else {
+                  onNavigateTab('movies');
+                }
+              }}
+              className="flex items-center gap-2 h-11 px-5 rounded-full bg-[#ffd24d] text-[#141414] font-bold text-[14px] hover:brightness-105 transition-all cursor-pointer border-0 shadow-sm"
+            >
+              <Play className="w-4 h-4 fill-current" />
+              <span>Resume Now</span>
+            </button>
+            <button
+              onClick={() => {
+                if (latestWatched && onSelectMedia) {
+                  onSelectMedia({
+                    id: latestWatched.id,
+                    title: latestWatched.title,
+                    media_type: latestWatched.media_type,
+                    poster_path: latestWatched.poster_path,
+                    backdrop_path: latestWatched.backdrop_path,
+                    overview: '',
+                    vote_average: 8.5,
+                  });
+                } else {
+                  onNavigateTab('movies');
+                }
+              }}
+              className="h-11 px-5 rounded-full bg-[#2b2b2f] text-[#f2efe9] font-semibold text-[14px] hover:bg-[#34343a] transition-all cursor-pointer border-0"
+            >
+              Details
+            </button>
+          </div>
         </div>
-      </div>
+      ) : (
+        <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-6 bg-[#18181a] border border-[#34343a] rounded-[32px] p-6 shadow-sm">
+          <div>
+            <div className="flex items-center gap-2 mb-2">
+              <span className="bg-[#ffd24d] text-[#141414] font-extrabold text-[11px] px-2.5 py-1 rounded-full tracking-[0.03em]">
+                GET STARTED
+              </span>
+              <span className="text-[12px] text-[#a9a7a2]">Welcome to Ovilo</span>
+            </div>
+            <h2 className="text-[28px] font-extrabold text-[#f2efe9] font-['Bricolage_Grotesque',sans-serif] mb-1">
+              Start Streaming Today
+            </h2>
+            <p className="text-[13px] text-[#a9a7a2]">
+              Explore trending blockbusters, binge television series, or listen to music with synchronized lyrics.
+            </p>
+          </div>
+          <div className="flex items-center gap-3">
+            <button
+              onClick={() => onNavigateTab('movies')}
+              className="flex items-center gap-2 h-11 px-5 rounded-full bg-[#ffd24d] text-[#141414] font-bold text-[14px] hover:brightness-105 transition-all cursor-pointer border-0 shadow-sm"
+            >
+              <Play className="w-4 h-4 fill-current" />
+              <span>Browse Movies</span>
+            </button>
+            <button
+              onClick={() => onNavigateTab('music')}
+              className="flex items-center gap-2 h-11 px-5 rounded-full bg-[#2b2b2f] text-[#f2efe9] font-semibold text-[14px] hover:bg-[#34343a] transition-all cursor-pointer border-0"
+            >
+              <Headphones className="w-4 h-4 text-[#a8e6c3]" />
+              <span>Explore Music</span>
+            </button>
+          </div>
+        </div>
+      )}
 
       {/* 3. 4 Stats Cards */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
@@ -178,12 +211,12 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
             <span className="font-semibold text-[13px] text-black/70">TOTAL WATCH TIME</span>
           </div>
           <div className="text-[44px] leading-none font-extrabold font-['Bricolage_Grotesque',sans-serif] tracking-[-0.03em] mt-auto">
-            {rangeData.h}
+            {history.length > 0 ? (history.length * 1.5).toFixed(1) : '0.0'}
             <small className="text-[14px] font-medium font-sans text-black/70 tracking-normal ml-1.5">hours</small>
           </div>
           <div className="text-[12px] font-semibold mt-2.5 flex items-center gap-1.5 text-[#141414]">
             <Activity className="w-3.5 h-3.5" />
-            <span>{rangeData.note}</span>
+            <span>{history.length > 0 ? `${history.length} titles recorded` : 'No watch history yet'}</span>
           </div>
         </div>
 
@@ -208,11 +241,11 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
             </div>
           </div>
           <div className="text-[44px] leading-none font-extrabold font-['Bricolage_Grotesque',sans-serif] tracking-[-0.03em] mt-auto text-[#f2efe9]">
-            {favorites.length > 0 ? favorites.length : rangeData.fav[selectedFav]}
+            {favorites.length}
             <small className="text-[14px] font-medium font-sans text-[#a9a7a2] tracking-normal ml-1.5">favorites saved</small>
           </div>
           <div className="text-[12px] font-semibold mt-2.5 text-[#a8e6c3]">
-            Synced to @{username}
+            {profile ? `Synced to @${username}` : 'Guest Mode'}
           </div>
         </div>
 
@@ -231,11 +264,11 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
             ))}
           </div>
           <div className="text-[44px] leading-none font-extrabold font-['Bricolage_Grotesque',sans-serif] tracking-[-0.03em] mt-auto text-[#f2efe9]">
-            27
+            0
             <small className="text-[14px] font-medium font-sans text-[#a9a7a2] tracking-normal ml-1.5">total tracks</small>
           </div>
           <div className="text-[12px] font-semibold mt-2.5 text-[#a8e6c3]">
-            13 local · 14 favorited
+            Library ready
           </div>
         </div>
 

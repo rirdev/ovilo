@@ -243,97 +243,129 @@ export const WelcomeOnboardingModal: React.FC<WelcomeOnboardingModalProps> = ({
             </button>
           )}
 
-          {/* LEFT COLUMN: YELLOW BRAND PANEL (.ap) MATCHING SHEET 1 & 2 */}
-          <div className="ap relative overflow-hidden flex flex-col justify-between p-10" style={{ background: 'var(--kino-yellow, #ffd24d)', color: 'var(--kino-ink, #000)' }}>
+          {/* LEFT COLUMN: YELLOW BRAND PANEL */}
+          <div
+            className="relative overflow-hidden flex flex-col justify-between p-8 sm:p-10 select-none"
+            style={{
+              background: 'var(--kino-yellow, #ffd24d)',
+              color: '#000',
+            }}
+          >
             <div>
               {/* Logo */}
-              <div className="logo flex items-center gap-3">
-                <div
-                  className="w-7 h-7 rounded-lg overflow-hidden flex items-center justify-center bg-black"
-                >
-                  <img src="/logos/logo.png" alt="Ovilo" className="w-full h-full object-cover" onError={(e) => { e.currentTarget.style.display = 'none'; }} />
+              <div className="flex items-center gap-2.5">
+                <div className="w-8 h-8 rounded-xl overflow-hidden flex items-center justify-center bg-black shadow-md">
+                  <img
+                    src="/logos/logo.png"
+                    alt="Ovilo"
+                    className="w-full h-full object-cover"
+                    onError={(e) => {
+                      e.currentTarget.style.display = 'none';
+                    }}
+                  />
                 </div>
-                <span className="font-extrabold text-2xl tracking-tight text-black font-['Bricolage_Grotesque',sans-serif]">Ovilo</span>
+                <span className="font-extrabold text-2xl tracking-tight text-black font-['Plus_Jakarta_Sans',sans-serif]">
+                  Ovilo
+                </span>
               </div>
 
               {/* Tagline */}
-              <h1 className="text-5xl font-black leading-[0.92] tracking-tight mt-10 text-black font-['Bricolage_Grotesque',sans-serif]">
+              <h1 className="text-3xl sm:text-4xl font-black leading-[1.05] tracking-tight mt-6 text-black font-['Plus_Jakarta_Sans',sans-serif]">
                 Watch it.<br />Hear it.<br />Keep it.
               </h1>
-              <p className="max-w-[32ch] mt-4 font-semibold text-sm text-black/80">
+              <p className="max-w-[28ch] mt-2.5 font-semibold text-xs sm:text-sm text-black/75 leading-relaxed">
                 Movies, series, music and downloads in one fast, local-first hub.
               </p>
             </div>
 
-            {/* Stacked Tilted Poster Cards (.stk) */}
-            <div className="stk relative w-full h-56 my-4">
-              <div
-                className="absolute rounded-2xl shadow-xl overflow-hidden flex flex-col justify-end p-3.5 border border-black/10"
-                style={{
-                  background: 'var(--kino-coral, #ff7a64)',
-                  width: '140px',
-                  height: '200px',
-                  left: '20px',
-                  top: '10px',
-                  transform: 'rotate(-9deg)',
-                }}
-              >
-                <img
-                  src="https://image.tmdb.org/t/p/w342/8cdWjvZQUExUUTzyp4t6EDMubfO.jpg"
-                  alt="Movie"
-                  className="absolute inset-0 w-full h-full object-cover opacity-85"
-                />
-                <b className="relative z-10 text-xs font-bold text-white drop-shadow">Deadpool &amp; Wolverine</b>
-              </div>
+            {/* Stacked Tilted Poster Cards Showcase (Strictly non-overlapping) */}
+            <div className="relative w-full h-44 my-4 flex items-center justify-center">
+              <div className="relative w-[240px] h-[160px]">
+                {/* Poster 1 (Left - Deadpool) */}
+                <div
+                  className="absolute rounded-2xl shadow-2xl overflow-hidden flex flex-col justify-end p-2.5 border border-black/15 transition-transform"
+                  style={{
+                    background: '#ff7a64',
+                    width: '105px',
+                    height: '148px',
+                    left: '8px',
+                    top: '10px',
+                    transform: 'rotate(-8deg)',
+                  }}
+                >
+                  <img
+                    src="https://image.tmdb.org/t/p/w342/8cdWjvZQUExUUTzyp4t6EDMubfO.jpg"
+                    alt="Movie"
+                    className="absolute inset-0 w-full h-full object-cover opacity-90"
+                  />
+                  <b className="relative z-10 text-[10px] font-bold text-white drop-shadow truncate">
+                    Deadpool &amp; Wolverine
+                  </b>
+                </div>
 
-              <div
-                className="absolute rounded-2xl shadow-xl overflow-hidden flex flex-col justify-end p-3.5 border border-black/10"
-                style={{
-                  background: 'var(--kino-peri, #9fa8ff)',
-                  width: '140px',
-                  height: '200px',
-                  left: '120px',
-                  top: '0px',
-                  transform: 'rotate(6deg)',
-                  zIndex: 2,
-                }}
-              >
-                <img
-                  src="https://image.tmdb.org/t/p/w342/d5NXSklXo0qyIYkgV94XAgMIckC.jpg"
-                  alt="Dune"
-                  className="absolute inset-0 w-full h-full object-cover opacity-85"
-                />
-                <b className="relative z-10 text-xs font-bold text-white drop-shadow">Dune: Part Two</b>
-              </div>
+                {/* Poster 2 (Right - Dune) */}
+                <div
+                  className="absolute rounded-2xl shadow-2xl overflow-hidden flex flex-col justify-end p-2.5 border border-black/15 transition-transform"
+                  style={{
+                    background: '#9fa8ff',
+                    width: '105px',
+                    height: '148px',
+                    left: '124px',
+                    top: '4px',
+                    transform: 'rotate(7deg)',
+                    zIndex: 2,
+                  }}
+                >
+                  <img
+                    src="https://image.tmdb.org/t/p/w342/d5NXSklXo0qyIYkgV94XAgMIckC.jpg"
+                    alt="Dune"
+                    className="absolute inset-0 w-full h-full object-cover opacity-90"
+                  />
+                  <b className="relative z-10 text-[10px] font-bold text-white drop-shadow truncate">
+                    Dune: Part Two
+                  </b>
+                </div>
 
-              <div
-                className="absolute rounded-2xl shadow-xl overflow-hidden flex flex-col justify-end p-3.5 border border-black/10"
-                style={{
-                  background: 'var(--kino-ink, #000)',
-                  color: 'var(--kino-yellow, #ffd24d)',
-                  width: '140px',
-                  height: '200px',
-                  left: '80px',
-                  top: '40px',
-                  transform: 'rotate(-2deg)',
-                  zIndex: 3,
-                }}
-              >
-                <img
-                  src="https://images.unsplash.com/photo-1514525253161-7a46d19cd819?q=80&w=300&auto=format&fit=crop"
-                  alt="Music"
-                  className="absolute inset-0 w-full h-full object-cover opacity-75"
-                />
-                <b className="relative z-10 text-xs font-bold text-[#ffd24d] drop-shadow">Slow Harbour</b>
+                {/* Poster 3 (Center - Music) */}
+                <div
+                  className="absolute rounded-2xl shadow-2xl overflow-hidden flex flex-col justify-end p-2.5 border border-black/15 transition-transform"
+                  style={{
+                    background: '#000',
+                    color: '#ffd24d',
+                    width: '105px',
+                    height: '148px',
+                    left: '68px',
+                    top: '18px',
+                    transform: 'rotate(-1deg)',
+                    zIndex: 3,
+                  }}
+                >
+                  <img
+                    src="https://images.unsplash.com/photo-1514525253161-7a46d19cd819?q=80&w=300&auto=format&fit=crop"
+                    alt="Music"
+                    className="absolute inset-0 w-full h-full object-cover opacity-80"
+                  />
+                  <b className="relative z-10 text-[10px] font-bold text-[#ffd24d] drop-shadow truncate">
+                    Slow Harbour
+                  </b>
+                </div>
               </div>
             </div>
 
-            {/* Feature Pills (.feat) */}
-            <div className="feat flex flex-wrap gap-2 mt-auto">
-              <span>Ad-free</span>
-              <span>1080p &amp; 4K</span>
-              <span>Lossless audio</span>
-              <span>Cloud sync</span>
+            {/* Feature Pills */}
+            <div className="flex flex-wrap gap-2 mt-auto">
+              <span className="px-3 py-1 rounded-full text-[11px] font-bold bg-black text-white">
+                Ad-free
+              </span>
+              <span className="px-3 py-1 rounded-full text-[11px] font-bold bg-black text-white">
+                1080p &amp; 4K
+              </span>
+              <span className="px-3 py-1 rounded-full text-[11px] font-bold bg-black text-white">
+                Lossless audio
+              </span>
+              <span className="px-3 py-1 rounded-full text-[11px] font-bold bg-black text-white">
+                Cloud sync
+              </span>
             </div>
           </div>
 

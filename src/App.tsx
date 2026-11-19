@@ -47,7 +47,7 @@ import { AudioProvider, useAudio } from './context/AudioContext';
 import { ThemeProvider, useTheme } from './context/ThemeContext';
 
 const AppContent: React.FC = () => {
-  const { pause, isPlaying, currentTrack, toggleLyricsModal, togglePlay, playTrack } = useAudio();
+  const { pause, isPlaying, currentTrack, toggleLyricsModal, togglePlay } = useAudio();
   const { theme, setTheme, toggleTheme } = useTheme();
   const [activeTab, setActiveTab] = useState<string>('dashboard');
   const [isAppLoading, setIsAppLoading] = useState<boolean>(true);
@@ -204,17 +204,7 @@ const AppContent: React.FC = () => {
         } else if (payload.notch === 'toggle_play') {
           togglePlay();
         } else if (payload.notch === 'play_new') {
-          playTrack({
-            id: 'local_taste',
-            title: 'Taste',
-            artist: 'Sabrina Carpenter',
-            duration: 157,
-            file_path: '/home/rir790/Downloads/Ovilo/Sabrina Carpenter - Taste.m4a',
-            is_local: true,
-            has_lyrics: false,
-            stream_url: 'http://127.0.0.1:4545/media?path=%2Fhome%2Frir790%2FDownloads%2FOvilo%2FSabrina%20Carpenter%20-%20Taste.m4a',
-            artwork_url: 'https://images.unsplash.com/photo-1514525253161-7a46d19cd819?q=80&w=300&auto=format&fit=crop',
-          });
+          togglePlay();
         } else {
           window.dispatchEvent(new CustomEvent('ovilo_notch_control', { detail: payload.notch }));
         }
@@ -290,17 +280,7 @@ const AppContent: React.FC = () => {
             } else if (data.notch === 'toggle_play') {
               togglePlay();
             } else if (data.notch === 'play_new') {
-              playTrack({
-                id: 'local_taste',
-                title: 'Taste',
-                artist: 'Sabrina Carpenter',
-                duration: 157,
-                file_path: '/home/rir790/Downloads/Ovilo/Sabrina Carpenter - Taste.m4a',
-                is_local: true,
-                has_lyrics: false,
-                stream_url: 'http://127.0.0.1:4545/media?path=%2Fhome%2Frir790%2FDownloads%2FOvilo%2FSabrina%20Carpenter%20-%20Taste.m4a',
-                artwork_url: 'https://images.unsplash.com/photo-1514525253161-7a46d19cd819?q=80&w=300&auto=format&fit=crop',
-              });
+              togglePlay();
             } else {
               window.dispatchEvent(new CustomEvent('ovilo_notch_control', { detail: data.notch }));
             }

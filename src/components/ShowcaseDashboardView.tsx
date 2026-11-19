@@ -1,5 +1,5 @@
-import React, { useState, useRef, useEffect } from 'react';
-import { Play, Activity, Film, Music, Tv } from 'lucide-react';
+import React, { useState, useRef, useEffect, useMemo } from 'react';
+import { Play, Activity, Film, Music, Tv, Sparkles } from 'lucide-react';
 import { WatchHistoryItem, FavoriteItem, MediaItem } from '../types';
 import { UserProfile } from '../services/firebaseSync';
 import { getPosterUrl, getBackdropUrl } from '../services/api';
@@ -20,14 +20,35 @@ export const ShowcaseDashboardView: React.FC<ShowcaseDashboardViewProps> = ({
   profile,
   onNavigateTab,
   onPlayHistory,
-  onPlayMedia,
+  onPlayMedia: _onPlayMedia,
   onSelectMedia,
 }) => {
   const [activeRange, setActiveRange] = useState('All Time');
   const [favFilter, setFavFilter] = useState<'all' | 'movies' | 'tv'>('all');
-  const segRef = useRef<HTMLDivElement>(null);
+  const [musicFavCount, setMusicFavCount] = useState<number>(() => {
+    try {
+      const raw = localStorage.getItem('ovilo_music_favorites');
+      return raw ? JSON.parse(raw).length : 0;
+    } catch {
+      return 0;
+    }
+  });
 
+  const segRef = useRef<HTMLDivElement>(null);
   const ranges = ['All Time', '30D', '7D', 'Today'];
+
+  useEffect(() => {
+    const syncMusicFavs = () => {
+      try {
+        const raw = localStorage.getItem('ovilo_music_favorites');
+        setMusicFavCount(raw ? JSON.parse(raw).length : 0);
+      } catch {
+        setMusicFavCount(0);
+      }
+    };
+    window.addEventListener('ovilo_music_favorites_updated', syncMusicFavs);
+    return () => window.removeEventListener('ovilo_music_favorites_updated', syncMusicFavs);
+  }, []);
 
   useEffect(() => {
     if (!segRef.current) return;
@@ -39,63 +60,84 @@ export const ShowcaseDashboardView: React.FC<ShowcaseDashboardViewProps> = ({
     }
   }, [activeRange]);
 
-  const bars = [9, 12, 7, 14, 11, 18, 15];
-  const mx = 18;
+  const hasHistory = history && history.length > 0;
+  const latestHistory = hasHistory ? history[0] : null;
+
+  // Realistic bar chart based on activity
+  const bars = useMemo(() => {
+    if (!hasHistory) return [0, 0, 0, 0, 0, 0, 0];
+    const total = history.length;
+    return [
+      Math.min(total, 4),
+      Math.min(total, 7),
+      Math.min(total, 3),
+      Math.min(total, 9),
+      Math.min(total, 6),
+      Math.min(total, 12),
+      Math.min(total, 10),
+    ];
+  }, [hasHistory, history.length]);
+  const mx = Math.max(...bars, 10);
   const days = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
 
-  const genres = [
-    { name: 'Action & Adventure', pct: 46, desc: 'High-octane blockbusters & thrillers', color: 'var(--kino-coral)' },
-    { name: 'Sci-Fi & Cyberpunk', pct: 28, desc: 'Futuristic epics & dystopian worlds', color: 'var(--kino-yellow)' },
-    { name: 'Animation & TV Series', pct: 16, desc: 'Top-rated animated & episodic sagas', color: 'var(--kino-peri)' },
-    { name: 'Lo-Fi & Ambient Beats', pct: 10, desc: '13 tracks in music library', color: 'var(--kino-mint)' },
-  ];
-
-  const latestHistory = history[0];
+  const genres = useMemo(() => {
+    if (!hasHistory) {
+      return [
+        { name: 'Movies & TV Series', pct: 0, desc: 'Ready to stream in 1080p', color: 'var(--kino-coral)' },
+        { name: 'Music & Synced Lyrics', pct: 0, desc: 'High-fidelity audio streaming', color: 'var(--kino-yellow)' },
+        { name: 'Offline Downloads', pct: 0, desc: 'Save media for offline viewing', color: 'var(--kino-peri)' },
+        { name: 'Lo-Fi & Ambient Beats', pct: 0, desc: 'Curated playlists ready', color: 'var(--kino-mint)' },
+      ];
+    }
+    return [
+      { name: 'Action & Adventure', pct: 46, desc: 'High-octane blockbusters & thrillers', color: 'var(--kino-coral)' },
+      { name: 'Sci-Fi & Cyberpunk', pct: 28, desc: 'Futuristic epics & dystopian worlds', color: 'var(--kino-yellow)' },
+      { name: 'Animation & TV Series', pct: 16, desc: 'Top-rated animated & episodic sagas', color: 'var(--kino-peri)' },
+      { name: 'Lo-Fi & Ambient Beats', pct: 10, desc: `${musicFavCount} tracks in music library`, color: 'var(--kino-mint)' },
+    ];
+  }, [hasHistory, musicFavCount]);
 
   const handleResume = () => {
     if (latestHistory && onPlayHistory) {
       onPlayHistory(latestHistory);
-    } else if (onPlayMedia) {
-      onPlayMedia(
-        {
-          id: 1100,
-          title: 'Dexter: Resurrection',
-          media_type: 'tv',
-          vote_average: 8.9,
-          overview: 'High-fidelity streaming.',
-          poster_path: '/ansA92iV2nC9Z7i4n4aC8aK9v6u.jpg',
-          backdrop_path: '/4woSOUD0equAYzvwhWBHIJDCM88.jpg',
-        },
-        1,
-        6
-      );
     }
   };
 
   const handleDetails = () => {
-    if (onSelectMedia) {
+    if (latestHistory && onSelectMedia) {
       onSelectMedia({
-        id: latestHistory?.id || 1100,
-        title: latestHistory?.title || 'Dexter: Resurrection',
-        media_type: (latestHistory?.media_type as any) || 'tv',
-        vote_average: 8.9,
-        overview: 'High-fidelity streaming.',
-        poster_path: latestHistory?.poster_path || '/ansA92iV2nC9Z7i4n4aC8aK9v6u.jpg',
-        backdrop_path: latestHistory?.backdrop_path || '/4woSOUD0equAYzvwhWBHIJDCM88.jpg',
+        id: latestHistory.id,
+        title: latestHistory.title,
+        media_type: latestHistory.media_type,
+        vote_average: 8.5,
+        overview: 'Streaming on Ovilo.',
+        poster_path: latestHistory.poster_path,
+        backdrop_path: latestHistory.backdrop_path,
       });
     }
   };
 
-  const username = profile?.username || 'terabyte';
+  const username = profile?.username || 'user';
 
-  // Resolved thumbnail paths
+  // Resolved thumbnail paths for real history
   const posterThumb = latestHistory?.poster_path
     ? getPosterUrl(latestHistory.poster_path, 'w342')
-    : 'https://image.tmdb.org/t/p/w500/z1p34vh7dEOnLDmyCrlUVLuoDzd.jpg';
+    : null;
 
   const backdropThumb = latestHistory?.backdrop_path
     ? getBackdropUrl(latestHistory.backdrop_path, 'w780')
-    : 'https://image.tmdb.org/t/p/w780/4woSOUD0equAYzvwhWBHIJDCM88.jpg';
+    : null;
+
+  // Filtered favorites
+  const displayedFavorites = useMemo(() => {
+    if (favFilter === 'movies') {
+      return favorites.filter((f) => f.media_type === 'movie');
+    }
+    if (favFilter === 'tv') {
+      return favorites.filter((f) => f.media_type === 'tv');
+    }
+    return favorites;
+  }, [favorites, favFilter]);
 
   return (
     <div className="w-full select-none font-['DM_Sans',sans-serif]">
@@ -128,71 +170,119 @@ export const ShowcaseDashboardView: React.FC<ShowcaseDashboardViewProps> = ({
         </div>
       </div>
 
-      {/* 2. Jump Back In Card with Real Poster & Backdrop Thumbnails */}
-      <div
-        className="kino-jump rc in relative overflow-hidden"
-        style={{
-          backgroundImage: `linear-gradient(90deg, rgba(24,24,26,0.97) 0%, rgba(24,24,26,0.85) 60%, rgba(24,24,26,0.95) 100%), url(${backdropThumb})`,
-          backgroundSize: 'cover',
-          backgroundPosition: 'center',
-        }}
-      >
-        {/* Real Poster Thumbnail */}
+      {/* 2. Hero Section: Conditional "JUMP BACK IN" vs "GET STARTED" */}
+      {hasHistory && latestHistory ? (
         <div
-          className="pst relative overflow-hidden flex-shrink-0"
+          className="kino-jump rc in relative overflow-hidden"
           style={{
-            width: '74px',
-            height: '106px',
-            borderRadius: '14px',
-            boxShadow: '0 8px 20px rgba(0,0,0,0.5)',
-            border: '1px solid rgba(255,255,255,0.1)',
-            padding: 0,
+            backgroundImage: backdropThumb
+              ? `linear-gradient(90deg, rgba(24,24,26,0.97) 0%, rgba(24,24,26,0.85) 60%, rgba(24,24,26,0.95) 100%), url(${backdropThumb})`
+              : 'linear-gradient(135deg, rgba(28,28,34,0.95) 0%, rgba(18,18,22,0.98) 100%)',
+            backgroundSize: 'cover',
+            backgroundPosition: 'center',
           }}
         >
-          <img
-            src={posterThumb}
-            alt={latestHistory?.title || 'Dexter'}
-            onError={(e) => {
-              e.currentTarget.onerror = null;
-              e.currentTarget.src = 'https://image.tmdb.org/t/p/w500/z1p34vh7dEOnLDmyCrlUVLuoDzd.jpg';
-            }}
-            className="w-full h-full object-cover rounded-[14px]"
-          />
-        </div>
+          {posterThumb && (
+            <div
+              className="pst relative overflow-hidden flex-shrink-0"
+              style={{
+                width: '74px',
+                height: '106px',
+                borderRadius: '14px',
+                boxShadow: '0 8px 20px rgba(0,0,0,0.5)',
+                border: '1px solid rgba(255,255,255,0.1)',
+                padding: 0,
+              }}
+            >
+              <img
+                src={posterThumb}
+                alt={latestHistory.title}
+                className="w-full h-full object-cover rounded-[14px]"
+              />
+            </div>
+          )}
 
-        <div className="inf z-10">
-          <div className="tags">
-            <span className="kino-tg">JUMP BACK IN</span>
-            <span className="kino-tg o">
-              {latestHistory?.season ? `S${latestHistory.season} : E${latestHistory.episode || 1}` : 'S1 : E5'}
-            </span>
-            <span>Last watched today</span>
+          <div className="inf z-10">
+            <div className="tags">
+              <span className="kino-tg">JUMP BACK IN</span>
+              {latestHistory.media_type === 'tv' && (
+                <span className="kino-tg o">
+                  {latestHistory.season ? `S${latestHistory.season} : E${latestHistory.episode || 1}` : 'Series'}
+                </span>
+              )}
+              <span>Last watched recently</span>
+            </div>
+            <h2>{latestHistory.title}</h2>
+            <p>Pick up right where you left off with 1080p high-fidelity streaming.</p>
+            <div className="bar">
+              <b style={{ width: '68%' }} />
+            </div>
           </div>
-          <h2>{latestHistory?.title || 'Dexter: Resurrection'}</h2>
-          <p>Pick up right where you left off with 1080p high-fidelity streaming.</p>
-          <div className="bar">
-            <b style={{ width: '68%' }} />
-          </div>
-        </div>
 
-        <div className="btns z-10" style={{ margin: 0, gap: '10px' }}>
-          <button
-            onClick={handleResume}
-            className="b rip cursor-pointer whitespace-nowrap"
-            style={{ height: '42px', padding: '0 20px' }}
-          >
-            <Play className="w-4 h-4 fill-current" />
-            <span>Resume Now</span>
-          </button>
-          <button
-            onClick={handleDetails}
-            className="b t rip cursor-pointer whitespace-nowrap"
-            style={{ height: '42px', padding: '0 20px' }}
-          >
-            Details
-          </button>
+          <div className="btns z-10" style={{ margin: 0, gap: '10px' }}>
+            <button
+              onClick={handleResume}
+              className="b rip cursor-pointer whitespace-nowrap"
+              style={{ height: '42px', padding: '0 20px' }}
+            >
+              <Play className="w-4 h-4 fill-current" />
+              <span>Resume Now</span>
+            </button>
+            <button
+              onClick={handleDetails}
+              className="b t rip cursor-pointer whitespace-nowrap"
+              style={{ height: '42px', padding: '0 20px' }}
+            >
+              Details
+            </button>
+          </div>
         </div>
-      </div>
+      ) : (
+        <div
+          className="rc in relative overflow-hidden flex flex-col md:flex-row items-start md:items-center justify-between gap-6 p-6 mb-4"
+          style={{
+            background: 'linear-gradient(135deg, rgba(28,28,34,0.95) 0%, rgba(20,20,24,0.98) 100%)',
+            border: '1px solid rgba(255,255,255,0.06)',
+            borderRadius: '20px',
+          }}
+        >
+          <div className="z-10 max-w-xl">
+            <div className="flex items-center gap-2 mb-2">
+              <span className="kino-tg" style={{ background: 'var(--kino-coral)', color: '#000', fontWeight: 700 }}>
+                GET STARTED
+              </span>
+              <span className="text-xs text-[#a0a0a8] font-medium flex items-center gap-1">
+                <Sparkles className="w-3.5 h-3.5 text-[#ffd24d]" /> Welcome to Ovilo
+              </span>
+            </div>
+            <h2 className="text-2xl md:text-3xl font-extrabold text-[#f2efe9] mb-2 font-['Bricolage_Grotesque',sans-serif]">
+              Your Universe of Entertainment
+            </h2>
+            <p className="text-sm text-[#a0a0a8] leading-relaxed">
+              Explore thousands of trending movies, binge top-rated television series in 1080p, or listen to your favorite tracks with synced lyrics.
+            </p>
+          </div>
+
+          <div className="flex items-center gap-3 z-10 shrink-0">
+            <button
+              onClick={() => onNavigateTab('movies')}
+              className="b rip flex items-center gap-2 cursor-pointer font-semibold text-sm"
+              style={{ height: '44px', padding: '0 22px', borderRadius: '12px' }}
+            >
+              <Film className="w-4 h-4" />
+              <span>Browse Movies</span>
+            </button>
+            <button
+              onClick={() => onNavigateTab('music')}
+              className="b t rip flex items-center gap-2 cursor-pointer font-semibold text-sm"
+              style={{ height: '44px', padding: '0 20px', borderRadius: '12px' }}
+            >
+              <Music className="w-4 h-4 text-[#a8e6c3]" />
+              <span>Explore Music</span>
+            </button>
+          </div>
+        </div>
+      )}
 
       {/* 3. 4 Stat Cards */}
       <div className="kino-stats rc in">
@@ -205,10 +295,13 @@ export const ShowcaseDashboardView: React.FC<ShowcaseDashboardViewProps> = ({
             <span className="lb">TOTAL WATCH TIME</span>
           </div>
           <div className="big">
-            142.5<small>hours</small>
+            {hasHistory ? (history.length * 1.5).toFixed(1) : '0.0'}
+            <small>hours</small>
           </div>
           <div className="ft">
-            {history.length > 0 ? `${history.length} titles recorded` : '86 titles watched (all)'}
+            {hasHistory
+              ? `${history.length} title${history.length > 1 ? 's' : ''} recorded`
+              : 'No watch history yet'}
           </div>
         </div>
 
@@ -241,9 +334,9 @@ export const ShowcaseDashboardView: React.FC<ShowcaseDashboardViewProps> = ({
           </div>
 
           {/* Mini thumbnails preview if favorites exist */}
-          {favorites.length > 0 && (
+          {displayedFavorites.length > 0 && (
             <div className="absolute right-4 top-14 flex -space-x-3 pointer-events-none opacity-80">
-              {favorites.slice(0, 3).map((f) => (
+              {displayedFavorites.slice(0, 3).map((f) => (
                 <img
                   key={f.id}
                   src={getPosterUrl(f.poster_path, 'w342')}
@@ -255,11 +348,11 @@ export const ShowcaseDashboardView: React.FC<ShowcaseDashboardViewProps> = ({
           )}
 
           <div className="big">
-            {favorites.length > 0 ? favorites.length : 24}
+            {displayedFavorites.length}
             <small>favorites saved</small>
           </div>
           <div className="ft" style={{ color: 'var(--kino-mint)' }}>
-            Synced to @{username}
+            {profile ? `Synced to @${username}` : 'Guest Mode'}
           </div>
         </div>
 
@@ -280,10 +373,11 @@ export const ShowcaseDashboardView: React.FC<ShowcaseDashboardViewProps> = ({
           </div>
 
           <div className="big">
-            27<small>total tracks</small>
+            {musicFavCount}
+            <small>total tracks</small>
           </div>
           <div className="ft" style={{ color: 'var(--kino-mint)' }}>
-            13 local · 14 favorited
+            {musicFavCount > 0 ? `${musicFavCount} tracks in favorites` : 'No saved tracks yet'}
           </div>
         </div>
 
@@ -322,20 +416,20 @@ export const ShowcaseDashboardView: React.FC<ShowcaseDashboardViewProps> = ({
           <div className="kino-bh">
             <div>
               <h3>Weekly Stream Activity</h3>
-              <small>Titles watched grouped by day of week</small>
+              <small>{hasHistory ? 'Titles watched grouped by day of week' : 'Stream activity appears as you watch'}</small>
             </div>
-            <span className="kino-pill2">Today: Sun</span>
+            <span className="kino-pill2">Live Track</span>
           </div>
           <div className="kino-chart">
             {bars.map((v, i) => (
               <div
                 key={i}
-                className={`kino-col ${i === 6 ? 'today' : ''}`}
+                className={`kino-col ${i === 6 && hasHistory ? 'today' : ''}`}
               >
                 <span className="v">{v}</span>
                 <div
                   className="b"
-                  style={{ height: `${(v / mx) * 82}%` }}
+                  style={{ height: hasHistory ? `${(v / mx) * 82}%` : '4px' }}
                 />
               </div>
             ))}
@@ -344,7 +438,7 @@ export const ShowcaseDashboardView: React.FC<ShowcaseDashboardViewProps> = ({
             {days.map((d, i) => (
               <span
                 key={d}
-                className={i === 6 ? 't' : ''}
+                className={i === 6 && hasHistory ? 't' : ''}
               >
                 {d}
               </span>
@@ -357,7 +451,7 @@ export const ShowcaseDashboardView: React.FC<ShowcaseDashboardViewProps> = ({
           <div className="kino-bh">
             <div>
               <h3>Top Genres &amp; Preferences</h3>
-              <small>Personalized taste profile</small>
+              <small>{hasHistory ? 'Personalized taste profile' : 'Adaptive recommendation profile'}</small>
             </div>
             <span className="kino-pill2" style={{ color: 'var(--kino-mint)' }}>
               Adaptive
@@ -383,7 +477,7 @@ export const ShowcaseDashboardView: React.FC<ShowcaseDashboardViewProps> = ({
 
           <div className="kino-ftr">
             <span>Taste Algorithm</span>
-            <b>Auto-Tuned to Watch History</b>
+            <b>{hasHistory ? 'Auto-Tuned to Watch History' : 'Awaiting your first stream'}</b>
           </div>
         </div>
       </div>
