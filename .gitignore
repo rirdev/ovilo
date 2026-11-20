@@ -23,7 +23,7 @@ admin/
 firebase.json
 firestore.rules
 ytdlp_server.py
-website/
+website/downloads/
 android/
 android-files/
 designer-skills/
