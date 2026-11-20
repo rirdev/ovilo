@@ -913,7 +913,7 @@ export const DownloadsUnifiedView: React.FC<DownloadsUnifiedViewProps> = ({
                   }`}
                 >
                   <span className={`w-2 h-2 rounded-full ${activeServer === 'server1' ? 'bg-black' : 'bg-[var(--kino-mint)]'}`} />
-                  <span>Server 1 (Dhaka)</span>
+                  <span>Server 1</span>
                 </button>
 
                 <button
@@ -925,7 +925,7 @@ export const DownloadsUnifiedView: React.FC<DownloadsUnifiedViewProps> = ({
                   }`}
                 >
                   <span className={`w-2 h-2 rounded-full ${activeServer === 'server2' ? 'bg-black' : 'bg-[var(--kino-mint)]'}`} />
-                  <span>Server 2 (CircleFTP)</span>
+                  <span>Server 2</span>
                 </button>
               </div>
 
