@@ -2309,6 +2309,10 @@ body.theme-cobalt {
 .btn.ghost { background: rgba(20, 20, 20, 0.14); color: var(--ink); cursor: pointer; }
 
 .cast { display: grid; grid-template-columns: repeat(6, 1fr); gap: 10px; text-align: center; }
+.cast > div { min-width: 0; }
+@media (max-width: 768px) {
+  .cast { grid-template-columns: repeat(3, 1fr); }
+}
 .cast .ac {
   width: 62px;
   height: 62px;
@@ -2708,13 +2712,14 @@ button:focus, button:focus-visible, a:focus, a:focus-visible {
 .eqv i:nth-child(4n)   { background: var(--mint, #5be1b8); }
 .eqv.paused i { transform: scaleY(0.08) !important; animation: none !important; }
 
-/* Global Kino Color Fallback Override: map legacy #DCFF7D to signature Kino yellow #ffd24d */
-[class*="bg-[#DCFF7D]"]:not(.theme-swatch-lime) { background-color: var(--yellow, #ffd24d) !important; }
+/* Global Kino Color Fallback Override: map legacy #DCFF7D to signature Kino yellow #ffd24d with proper contrast and opacity handling */
+[class*="bg-[#DCFF7D]/"] { background-color: rgba(255, 210, 77, 0.15) !important; color: var(--yellow, #ffd24d) !important; }
+[class*="bg-[#DCFF7D]"]:not([class*="/"]):not([class*="hover:"]):not(.theme-swatch-lime) { background-color: var(--yellow, #ffd24d) !important; color: #000000 !important; }
 [class*="text-[#DCFF7D]"]:not(.theme-swatch-lime) { color: var(--yellow, #ffd24d) !important; }
 [class*="border-[#DCFF7D]"]:not(.theme-swatch-lime) { border-color: var(--yellow, #ffd24d) !important; }
 [class*="shadow-[#DCFF7D]"] { --tw-shadow-color: var(--yellow, #ffd24d) !important; }
 [class*="ring-[#DCFF7D]"] { --tw-ring-color: var(--yellow, #ffd24d) !important; }
-[class*="hover:bg-[#DCFF7D]"]:hover { background-color: var(--yellow, #ffd24d) !important; }
+[class*="hover:bg-[#DCFF7D]"]:hover { background-color: var(--yellow, #ffd24d) !important; color: #000000 !important; }
 .turn { position: relative; width: 260px; height: 230px; }
 .disc { position: absolute; left: 10px; top: 20px; width: 190px; height: 190px; border-radius: 50%; background: conic-gradient(from 0deg,#171718,#2e2e33 8%,#171718 18%,#171718 50%,#2e2e33 58%,#171718 68%); box-shadow: 0 12px 30px rgba(0,0,0,.45); }
 .disc::before { content: ""; position: absolute; inset: 6px; border-radius: 50%; background: repeating-radial-gradient(circle,transparent 0 3px,rgba(255,255,255,.04) 3px 4px); }

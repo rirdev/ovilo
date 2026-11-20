@@ -4,6 +4,8 @@ import { getDownloads } from '../services/downloadManager';
 interface KinoDownloadButtonProps {
   onDownload?: () => Promise<string | void> | string | void;
   label?: string;
+  title?: string;
+  tooltip?: string;
   className?: string;
   style?: React.CSSProperties;
   small?: boolean;
@@ -11,7 +13,9 @@ interface KinoDownloadButtonProps {
 
 export const KinoDownloadButton: React.FC<KinoDownloadButtonProps> = ({
   onDownload,
-  label = 'Download',
+  label = 'Download / Watch',
+  title,
+  tooltip,
   className = '',
   style,
   small = false,
@@ -21,6 +25,8 @@ export const KinoDownloadButton: React.FC<KinoDownloadButtonProps> = ({
   const ringRef = useRef<SVGCircleElement | null>(null);
 
   const C2 = 2 * Math.PI * 20; // 125.66px
+  const hoverTooltipText = tooltip || title;
+  const effectiveTitle = title || tooltip || label;
 
   // Track REAL download progress and completion
   useEffect(() => {
@@ -111,10 +117,18 @@ export const KinoDownloadButton: React.FC<KinoDownloadButtonProps> = ({
       type="button"
       data-react-managed="true"
       onClick={handleClick}
-      className={`dlb ${status === 'run' ? 'run' : status === 'done' ? 'done' : ''} ${small ? 'sm' : ''} ${className}`}
+      className={`dlb group ${status === 'run' ? 'run' : status === 'done' ? 'done' : ''} ${small ? 'sm' : ''} ${className}`}
       style={style}
-      title={label}
+      title={effectiveTitle}
     >
+      {/* Sleek hover tooltip */}
+      {hoverTooltipText && status === 'idle' && (
+        <span className="pointer-events-none absolute -top-11 left-1/2 -translate-x-1/2 px-3 py-1.5 rounded-xl bg-neutral-900/95 text-white text-[11px] font-bold tracking-wide whitespace-nowrap opacity-0 scale-95 group-hover:opacity-100 group-hover:scale-100 transition-all duration-200 shadow-2xl border border-white/20 z-50 flex items-center gap-1.5 backdrop-blur-md">
+          <span>{hoverTooltipText}</span>
+          <span className="absolute -bottom-1 left-1/2 -translate-x-1/2 w-2 h-2 bg-neutral-900/95 rotate-45 border-r border-b border-white/20" />
+        </span>
+      )}
+
       <span className="lbl">
         <svg
           viewBox="0 0 24 24"

@@ -1565,6 +1565,106 @@ async fn fetch_trending_music(
 static CURRENT_NAV_TAB: std::sync::RwLock<Option<String>> = std::sync::RwLock::new(None);
 static CURRENT_NOTCH_CMD: std::sync::RwLock<Option<String>> = std::sync::RwLock::new(None);
 
+fn resolve_ffmpeg_binary(app: &AppHandle) -> Option<PathBuf> {
+    let candidate_names = ["ffmpeg", "ffmpeg.exe"];
+
+    // 1. APPDIR (Linux AppImage)
+    if let Ok(appdir) = std::env::var("APPDIR") {
+        for name in &candidate_names {
+            let candidates = [
+                PathBuf::from(&appdir).join(format!("usr/bin/{}", name)),
+                PathBuf::from(&appdir).join(format!("usr/lib/ovilio/resources/{}", name)),
+                PathBuf::from(&appdir).join(format!("resources/{}", name)),
+                PathBuf::from(&appdir).join(name),
+            ];
+            for c in &candidates {
+                if c.exists() {
+                    return Some(c.clone());
+                }
+            }
+        }
+    }
+
+    // 2. Resource dir
+    if let Ok(resource_dir) = app.path().resource_dir() {
+        for name in &candidate_names {
+            let p = resource_dir.join("resources").join(name);
+            if p.exists() {
+                return Some(p);
+            }
+            let p2 = resource_dir.join(name);
+            if p2.exists() {
+                return Some(p2);
+            }
+        }
+    }
+
+    // 3. Exe parent directory
+    if let Ok(exe) = std::env::current_exe() {
+        if let Some(parent) = exe.parent() {
+            for name in &candidate_names {
+                let p = parent.join("resources").join(name);
+                if p.exists() {
+                    return Some(p);
+                }
+                let p2 = parent.join(name);
+                if p2.exists() {
+                    return Some(p2);
+                }
+            }
+        }
+    }
+
+    // 4. Local user directories
+    if let Some(home) = dirs::home_dir() {
+        for name in &candidate_names {
+            let p = home.join(format!(".local/bin/{}", name));
+            if p.exists() {
+                return Some(p);
+            }
+            let p2 = home.join(format!("AppData/Local/ovilo/bin/{}", name));
+            if p2.exists() {
+                return Some(p2);
+            }
+        }
+    }
+
+    // 5. System PATH check
+    for name in &candidate_names {
+        if let Ok(out) = std::process::Command::new(name).arg("-version").output() {
+            if out.status.success() {
+                return Some(PathBuf::from(name));
+            }
+        }
+    }
+
+    #[cfg(unix)]
+    {
+        if PathBuf::from("/usr/bin/ffmpeg").exists() {
+            return Some(PathBuf::from("/usr/bin/ffmpeg"));
+        }
+        if PathBuf::from("/usr/local/bin/ffmpeg").exists() {
+            return Some(PathBuf::from("/usr/local/bin/ffmpeg"));
+        }
+    }
+
+    #[cfg(windows)]
+    {
+        let win_candidates = [
+            r"C:\ffmpeg\bin\ffmpeg.exe",
+            r"C:\Program Files\ffmpeg\bin\ffmpeg.exe",
+            r"C:\ProgramData\chocolatey\bin\ffmpeg.exe",
+        ];
+        for path in &win_candidates {
+            if PathBuf::from(path).exists() {
+                return Some(PathBuf::from(path));
+            }
+        }
+    }
+
+    None
+}
+
 fn start_local_media_server(app: AppHandle) {
     std::thread::spawn(move || {
         let rt = match tokio::runtime::Builder::new_current_thread()
@@ -1842,6 +1942,97 @@ fn start_local_media_server(app: AppHandle) {
                     return;
                 }
 
+                if uri.starts_with("/mkv_stream?") {
+                    let remote_url = if let Some(idx) = uri.find("url=") {
+                        let raw = &uri[idx + 4..];
+                        let clean_raw = raw.split('&').next().unwrap_or("");
+                        urlencoding::decode(clean_raw).unwrap_or(std::borrow::Cow::Borrowed("")).to_string()
+                    } else {
+                        String::new()
+                    };
+
+                    let start_sec: u64 = if let Some(s_idx) = uri.find("start=") {
+                        let s_raw = &uri[s_idx + 6..];
+                        let clean_s = s_raw.split('&').next().unwrap_or("0");
+                        clean_s.parse::<f64>().map(|f| f.floor() as u64).unwrap_or_else(|_| clean_s.parse::<u64>().unwrap_or(0))
+                    } else {
+                        0
+                    };
+
+                    let audio_track: u32 = if let Some(a_idx) = uri.find("audio=") {
+                        let a_raw = &uri[a_idx + 6..];
+                        let clean_a = a_raw.split('&').next().unwrap_or("0");
+                        clean_a.parse().unwrap_or(0)
+                    } else {
+                        0
+                    };
+
+                    if remote_url.is_empty() || (!remote_url.starts_with("http") && !std::path::Path::new(&remote_url).exists()) {
+                        let resp = format!("HTTP/1.1 400 Bad Request\r\n{}Connection: close\r\n\r\nMissing valid url parameter", cors_header);
+                        let _ = socket.write_all(resp.as_bytes()).await;
+                        return;
+                    }
+
+                    let ffmpeg_bin = resolve_ffmpeg_binary(&app_handle).unwrap_or_else(|| std::path::PathBuf::from("ffmpeg"));
+
+                    let mut cmd = tokio::process::Command::new(ffmpeg_bin);
+                    if start_sec > 0 {
+                        cmd.arg("-ss").arg(start_sec.to_string());
+                    }
+                    if remote_url.starts_with("http") {
+                        cmd.arg("-reconnect").arg("1")
+                           .arg("-reconnect_streamed").arg("1")
+                           .arg("-reconnect_delay_max").arg("5");
+                    }
+                    cmd.arg("-i").arg(&remote_url)
+                       .arg("-map").arg("0:v:0")
+                       .arg("-map").arg(format!("0:a:{}?", audio_track))
+                       .arg("-c:v").arg("copy")
+                       .arg("-c:a").arg("aac")
+                       .arg("-b:a").arg("192k")
+                       .arg("-ac").arg("2")
+                       .arg("-avoid_negative_ts").arg("make_zero")
+                       .arg("-movflags").arg("frag_keyframe+empty_moov+default_base_moof")
+                       .arg("-f").arg("mp4")
+                       .arg("pipe:1");
+
+                    cmd.stdout(std::process::Stdio::piped());
+                    cmd.stderr(std::process::Stdio::null());
+
+                    match cmd.spawn() {
+                        Ok(mut child) => {
+                            if let Some(stdout) = child.stdout.take() {
+                                let headers_str = format!(
+                                    "HTTP/1.1 200 OK\r\n{}Content-Type: video/mp4\r\nCache-Control: no-cache\r\nConnection: close\r\n\r\n",
+                                    cors_header
+                                );
+
+                                if socket.write_all(headers_str.as_bytes()).await.is_ok() {
+                                    let mut reader = tokio::io::BufReader::new(stdout);
+                                    let mut chunk_buf = [0u8; 32768];
+                                    loop {
+                                        match reader.read(&mut chunk_buf).await {
+                                            Ok(0) => break,
+                                            Ok(n) => {
+                                                if socket.write_all(&chunk_buf[..n]).await.is_err() {
+                                                    break;
+                                                }
+                                            }
+                                            Err(_) => break,
+                                        }
+                                    }
+                                }
+                            }
+                            let _ = child.kill().await;
+                        }
+                        Err(e) => {
+                            let resp = format!("HTTP/1.1 500 Internal Server Error\r\n{}Connection: close\r\n\r\nFFmpeg error: {}", cors_header, e);
+                            let _ = socket.write_all(resp.as_bytes()).await;
+                        }
+                    }
+                    return;
+                }
+
                 let file_path = if let Some(idx) = uri.find("path=") {
                     let raw = &uri[idx + 5..];
                     let clean_raw = raw.split('&').next().unwrap_or("");
@@ -2037,18 +2228,24 @@ pub struct YtDlpProgressPayload {
 
 fn resolve_ytdlp_binary(app: &AppHandle) -> PathBuf {
     let mut resolved: Option<PathBuf> = None;
+    let candidate_names = ["yt-dlp", "yt-dlp.exe"];
 
     if let Ok(appdir) = std::env::var("APPDIR") {
-        let candidates = [
-            PathBuf::from(&appdir).join("usr/lib/ovilio/resources/yt-dlp"),
-            PathBuf::from(&appdir).join("usr/bin/resources/yt-dlp"),
-            PathBuf::from(&appdir).join("usr/lib/ovilo/resources/yt-dlp"),
-            PathBuf::from(&appdir).join("resources/yt-dlp"),
-            PathBuf::from(&appdir).join("yt-dlp"),
-        ];
-        for c in &candidates {
-            if c.exists() {
-                resolved = Some(c.clone());
+        for name in &candidate_names {
+            let candidates = [
+                PathBuf::from(&appdir).join(format!("usr/lib/ovilio/resources/{}", name)),
+                PathBuf::from(&appdir).join(format!("usr/bin/resources/{}", name)),
+                PathBuf::from(&appdir).join(format!("usr/lib/ovilo/resources/{}", name)),
+                PathBuf::from(&appdir).join(format!("resources/{}", name)),
+                PathBuf::from(&appdir).join(name),
+            ];
+            for c in &candidates {
+                if c.exists() {
+                    resolved = Some(c.clone());
+                    break;
+                }
+            }
+            if resolved.is_some() {
                 break;
             }
         }
@@ -2056,13 +2253,16 @@ fn resolve_ytdlp_binary(app: &AppHandle) -> PathBuf {
 
     if resolved.is_none() {
         if let Ok(resource_dir) = app.path().resource_dir() {
-            let p = resource_dir.join("resources").join("yt-dlp");
-            if p.exists() {
-                resolved = Some(p);
-            } else {
-                let p2 = resource_dir.join("yt-dlp");
+            for name in &candidate_names {
+                let p = resource_dir.join("resources").join(name);
+                if p.exists() {
+                    resolved = Some(p);
+                    break;
+                }
+                let p2 = resource_dir.join(name);
                 if p2.exists() {
                     resolved = Some(p2);
+                    break;
                 }
             }
         }
@@ -2071,13 +2271,16 @@ fn resolve_ytdlp_binary(app: &AppHandle) -> PathBuf {
     if resolved.is_none() {
         if let Ok(exe) = std::env::current_exe() {
             if let Some(parent) = exe.parent() {
-                let p = parent.join("resources").join("yt-dlp");
-                if p.exists() {
-                    resolved = Some(p);
-                } else {
-                    let p2 = parent.join("yt-dlp");
+                for name in &candidate_names {
+                    let p = parent.join("resources").join(name);
+                    if p.exists() {
+                        resolved = Some(p);
+                        break;
+                    }
+                    let p2 = parent.join(name);
                     if p2.exists() {
                         resolved = Some(p2);
+                        break;
                     }
                 }
             }
@@ -2086,14 +2289,26 @@ fn resolve_ytdlp_binary(app: &AppHandle) -> PathBuf {
 
     if resolved.is_none() {
         if let Some(home) = dirs::home_dir() {
-            let p = home.join(".local/bin/yt-dlp");
-            if p.exists() {
-                resolved = Some(p);
+            for name in &candidate_names {
+                let p = home.join(format!(".local/bin/{}", name));
+                if p.exists() {
+                    resolved = Some(p);
+                    break;
+                }
             }
         }
     }
 
-    let target = resolved.unwrap_or_else(|| PathBuf::from("yt-dlp"));
+    let target = resolved.unwrap_or_else(|| {
+        #[cfg(target_os = "windows")]
+        {
+            PathBuf::from("yt-dlp.exe")
+        }
+        #[cfg(not(target_os = "windows"))]
+        {
+            PathBuf::from("yt-dlp")
+        }
+    });
 
     #[cfg(unix)]
     {
@@ -2397,6 +2612,140 @@ async fn download_music_track(
     Ok(target_path.to_string_lossy().to_string())
 }
 
+async fn try_auto_heal_mirror_url(client: &reqwest::Client, original_url: &str) -> Option<String> {
+    let parsed = url::Url::parse(original_url).ok()?;
+    let host = parsed.host_str()?;
+    let scheme = parsed.scheme();
+    let port_str = parsed.port().map(|p| format!(":{}", p)).unwrap_or_default();
+    let base_origin = format!("{}://{}{}", scheme, host, port_str);
+
+    let segments: Vec<&str> = match parsed.path_segments() {
+        Some(s) => s.filter(|part| !part.is_empty()).collect(),
+        None => return None,
+    };
+    if segments.len() < 2 {
+        return None;
+    }
+
+    let parent_dir = format!("{}/{}/", base_origin, segments[..segments.len() - 1].join("/"));
+    let grandparent_dir = if segments.len() > 2 {
+        format!("{}/{}/", base_origin, segments[..segments.len() - 2].join("/"))
+    } else {
+        format!("{}/", base_origin)
+    };
+
+    let raw_title = urlencoding::decode(segments[segments.len() - 2])
+        .unwrap_or(std::borrow::Cow::Borrowed(segments[segments.len() - 2]))
+        .into_owned();
+
+    let stop_words = [
+        "english", "foreign", "movies", "hindi", "dual", "audio", "hdtc", "cam", "bluray",
+        "webrip", "imax", "x264", "x265", "hevc", "1080p", "720p", "480p", "2160p", "clean",
+        "esub", "sub", "dubbed", "season", "complete", "remastered", "extended", "the", "and", "movie"
+    ];
+
+    let re_split = regex::Regex::new(r"[\s\.\(\)\[\]_\-]+").ok()?;
+    let keywords: Vec<String> = re_split
+        .split(&raw_title)
+        .map(|s| s.trim().to_lowercase())
+        .filter(|s| s.len() >= 3 && !stop_words.contains(&s.as_str()))
+        .collect();
+
+    if keywords.is_empty() {
+        return None;
+    }
+
+    let re_href = regex::Regex::new(r#"(?i)href=["']([^"']+)["']"#).ok()?;
+
+    for check_dir in [&parent_dir, &grandparent_dir] {
+        let resp = match client.get(check_dir).header("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36").send().await {
+            Ok(r) if r.status().is_success() => r,
+            _ => continue,
+        };
+
+        let html = match resp.text().await {
+            Ok(t) => t,
+            _ => continue,
+        };
+
+        let mut found_media: Vec<String> = Vec::new();
+        let mut found_folders: Vec<String> = Vec::new();
+
+        for cap in re_href.captures_iter(&html) {
+            let link = &cap[1];
+            let lower = link.to_lowercase();
+            if lower.contains("..") || lower.contains("_h5ai") || lower.contains("fonts.google") {
+                continue;
+            }
+            if lower.ends_with(".mkv") || lower.ends_with(".mp4") || lower.ends_with(".avi") || lower.ends_with(".mov") {
+                let decoded_link = urlencoding::decode(link).unwrap_or(std::borrow::Cow::Borrowed(link)).to_lowercase();
+                if keywords.iter().all(|k| decoded_link.contains(k)) {
+                    found_media.push(link.to_string());
+                }
+            } else if link.ends_with('/') || !link.contains('.') {
+                let decoded_link = urlencoding::decode(link).unwrap_or(std::borrow::Cow::Borrowed(link)).to_lowercase();
+                if keywords.iter().all(|k| decoded_link.contains(k)) {
+                    found_folders.push(link.to_string());
+                }
+            }
+        }
+
+        for m in found_media {
+            let full_media_url = if m.starts_with("http") {
+                m
+            } else if m.starts_with('/') {
+                format!("{}{}", base_origin, m)
+            } else {
+                format!("{}{}", check_dir, m)
+            };
+
+            if let Ok(test_head) = client.head(&full_media_url).header("User-Agent", "Mozilla/5.0").send().await {
+                if test_head.status().is_success() {
+                    return Some(full_media_url);
+                }
+            }
+        }
+
+        for f in found_folders {
+            let sub_folder_url = if f.starts_with("http") {
+                f
+            } else if f.starts_with('/') {
+                format!("{}{}", base_origin, f)
+            } else {
+                format!("{}{}", check_dir, f)
+            };
+
+            if let Ok(sub_resp) = client.get(&sub_folder_url).header("User-Agent", "Mozilla/5.0").send().await {
+                if sub_resp.status().is_success() {
+                    if let Ok(sub_html) = sub_resp.text().await {
+                        for sub_cap in re_href.captures_iter(&sub_html) {
+                            let sub_link = &sub_cap[1];
+                            let sub_lower = sub_link.to_lowercase();
+                            if sub_lower.ends_with(".mkv") || sub_lower.ends_with(".mp4") || sub_lower.ends_with(".avi") {
+                                let target_media_url = if sub_link.starts_with("http") {
+                                    sub_link.to_string()
+                                } else if sub_link.starts_with('/') {
+                                    format!("{}{}", base_origin, sub_link)
+                                } else {
+                                    format!("{}{}", sub_folder_url, sub_link)
+                                };
+
+                                if let Ok(test_head) = client.head(&target_media_url).header("User-Agent", "Mozilla/5.0").send().await {
+                                    if test_head.status().is_success() {
+                                        return Some(target_media_url);
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    None
+}
+
 #[tauri::command]
 async fn ytdlp_start_download(
     app: AppHandle,
@@ -2422,34 +2771,290 @@ async fn ytdlp_start_download(
     let download_dir = resolve_ovilo_download_dir();
     let _ = fs::create_dir_all(&download_dir);
 
-    let output_template = format!("{}/%(title)s [%(id)s].%(ext)s", download_dir.to_string_lossy());
-
-    let mut cmd = tokio::process::Command::new(&bin_path);
-    cmd.arg("--extractor-args")
-       .arg("youtube:player_client=ios,android,mweb,web")
-       .arg("--newline")
-       .arg("--no-playlist")
-       .arg("--progress-template")
-       .arg("PROGRESS:%(progress._percent_str)s|%(progress._speed_str)s|%(progress._eta_str)s|%(progress._total_bytes_str)s")
-       .arg("-o")
-       .arg(&output_template);
-
     let lower_url = trimmed_url.to_lowercase();
     let is_direct_file = lower_url.ends_with(".iso")
         || lower_url.ends_with(".zip")
         || lower_url.ends_with(".tar")
         || lower_url.ends_with(".gz")
+        || lower_url.ends_with(".rar")
+        || lower_url.ends_with(".7z")
         || lower_url.ends_with(".apk")
         || lower_url.ends_with(".exe")
         || lower_url.ends_with(".msi")
         || lower_url.ends_with(".mkv")
         || lower_url.ends_with(".mp4")
         || lower_url.ends_with(".avi")
+        || lower_url.ends_with(".mov")
+        || lower_url.ends_with(".flv")
+        || lower_url.ends_with(".wmv")
+        || lower_url.ends_with(".webm")
         || lower_url.ends_with(".pdf")
+        || lower_url.ends_with(".txt")
+        || lower_url.contains("/dhaka-flix")
+        || lower_url.contains("circleftp.net")
         || lower_url.contains("/ftp")
         || lower_url.starts_with("ftp://");
 
+    // 1. Direct HTTP/HTTPS direct file stream via native reqwest (Ultra-fast, zero yt-dlp dependencies)
+    if is_direct_file && (trimmed_url.starts_with("http://") || trimmed_url.starts_with("https://")) {
+        let clean_path = trimmed_url.split('?').next().unwrap_or(&trimmed_url);
+        let raw_segment = clean_path.split('/').filter(|s| !s.is_empty()).last().unwrap_or("download.bin");
+        let decoded_name = urlencoding::decode(raw_segment).unwrap_or(std::borrow::Cow::Borrowed(raw_segment)).into_owned();
+
+        let sanitized_name = decoded_name.replace(&['/', '\\', ':', '*', '?', '"', '<', '>', '|'][..], "_");
+        let safe_filename = if sanitized_name.len() > 110 {
+            sanitized_name[sanitized_name.len() - 110..].to_string()
+        } else {
+            sanitized_name
+        };
+
+        let target_path = download_dir.join(&safe_filename);
+        let mut target_path_clone = target_path.clone();
+        let d_id = download_id.clone();
+        let app_clone = app.clone();
+        let mut direct_url = trimmed_url.clone();
+        let dl_dir = download_dir.clone();
+
+        tokio::spawn(async move {
+            use tokio::io::AsyncWriteExt;
+            let client = reqwest::Client::builder()
+                .timeout(std::time::Duration::from_secs(3600))
+                .connect_timeout(std::time::Duration::from_secs(15))
+                .build()
+                .unwrap_or_default();
+
+            let req = client
+                .get(&direct_url)
+                .header("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/128.0.0.0 Safari/537.36");
+
+            let mut response = match req.send().await {
+                Ok(res) => res,
+                Err(e) => {
+                    let err_str = e.to_string();
+                    let friendly_msg = if err_str.contains("timed out") || err_str.contains("refused") || err_str.contains("unreachable") || err_str.contains("172.16.") {
+                        "FTP Mirror server unreachable from current network/ISP. Please try another mirror or server.".to_string()
+                    } else {
+                        format!("Connection error: {}", err_str)
+                    };
+                    let _ = app_clone.emit(
+                        "ytdlp_progress",
+                        YtDlpProgressPayload {
+                            download_id: d_id.clone(),
+                            percent: 0.0,
+                            speed: String::new(),
+                            eta: String::new(),
+                            total_size: String::new(),
+                            status: "error".to_string(),
+                            file_path: None,
+                            error: Some(friendly_msg),
+                        },
+                    );
+                    return;
+                }
+            };
+
+            if !response.status().is_success() {
+                let mut recovered = false;
+                if response.status() == reqwest::StatusCode::NOT_FOUND {
+                    let _ = app_clone.emit(
+                        "ytdlp_progress",
+                        YtDlpProgressPayload {
+                            download_id: d_id.clone(),
+                            percent: 0.0,
+                            speed: "Locating updated mirror release...".to_string(),
+                            eta: "--".to_string(),
+                            total_size: "--".to_string(),
+                            status: "downloading".to_string(),
+                            file_path: None,
+                            error: None,
+                        },
+                    );
+
+                    if let Some(healed_url) = try_auto_heal_mirror_url(&client, &direct_url).await {
+                        if let Ok(new_res) = client
+                            .get(&healed_url)
+                            .header("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/128.0.0.0 Safari/537.36")
+                            .send()
+                            .await
+                        {
+                            if new_res.status().is_success() {
+                                response = new_res;
+                                direct_url = healed_url;
+                                let clean_path = direct_url.split('?').next().unwrap_or(&direct_url);
+                                let raw_segment = clean_path.split('/').filter(|s| !s.is_empty()).last().unwrap_or("download.bin");
+                                let decoded_name = urlencoding::decode(raw_segment).unwrap_or(std::borrow::Cow::Borrowed(raw_segment)).into_owned();
+                                let sanitized_name = decoded_name.replace(&['/', '\\', ':', '*', '?', '"', '<', '>', '|'][..], "_");
+                                let safe_filename = if sanitized_name.len() > 110 {
+                                    sanitized_name[sanitized_name.len() - 110..].to_string()
+                                } else {
+                                    sanitized_name
+                                };
+                                target_path_clone = dl_dir.join(&safe_filename);
+                                recovered = true;
+                            }
+                        }
+                    }
+                }
+
+                if !recovered {
+                    let err_msg = if response.status() == reqwest::StatusCode::NOT_FOUND {
+                        "Mirror 404: Upstream server replaced or removed this file. Try another mirror or search below.".to_string()
+                    } else {
+                        format!("Mirror returned error status: {}", response.status())
+                    };
+
+                    let _ = app_clone.emit(
+                        "ytdlp_progress",
+                        YtDlpProgressPayload {
+                            download_id: d_id.clone(),
+                            percent: 0.0,
+                            speed: String::new(),
+                            eta: String::new(),
+                            total_size: String::new(),
+                            status: "error".to_string(),
+                            file_path: None,
+                            error: Some(err_msg),
+                        },
+                    );
+                    return;
+                }
+            }
+
+            let total_size = response.content_length().unwrap_or(0);
+            let total_size_str = if total_size > 0 {
+                if total_size > 1024 * 1024 * 1024 {
+                    format!("{:.2} GB", total_size as f64 / (1024.0 * 1024.0 * 1024.0))
+                } else {
+                    format!("{:.1} MB", total_size as f64 / (1024.0 * 1024.0))
+                }
+            } else {
+                "Unknown".to_string()
+            };
+
+            let mut file = match tokio::fs::File::create(&target_path_clone).await {
+                Ok(f) => f,
+                Err(e) => {
+                    let _ = app_clone.emit(
+                        "ytdlp_progress",
+                        YtDlpProgressPayload {
+                            download_id: d_id.clone(),
+                            percent: 0.0,
+                            speed: String::new(),
+                            eta: String::new(),
+                            total_size: String::new(),
+                            status: "error".to_string(),
+                            file_path: None,
+                            error: Some(format!("File write error: {}", e)),
+                        },
+                    );
+                    return;
+                }
+            };
+
+            let mut downloaded: u64 = 0;
+            let mut last_emit = std::time::Instant::now();
+            let mut last_bytes = 0u64;
+
+            while let Ok(Some(chunk)) = response.chunk().await {
+                let len = chunk.len() as u64;
+                if let Err(e) = file.write_all(&chunk).await {
+                    let _ = app_clone.emit(
+                        "ytdlp_progress",
+                        YtDlpProgressPayload {
+                            download_id: d_id.clone(),
+                            percent: 0.0,
+                            speed: String::new(),
+                            eta: String::new(),
+                            total_size: String::new(),
+                            status: "error".to_string(),
+                            file_path: None,
+                            error: Some(format!("Disk write error: {}", e)),
+                        },
+                    );
+                    return;
+                }
+                downloaded += len;
+
+                let now = std::time::Instant::now();
+                if now.duration_since(last_emit).as_millis() > 300 {
+                    let elapsed_secs = now.duration_since(last_emit).as_secs_f64();
+                    let speed_bps = if elapsed_secs > 0.0 {
+                        (downloaded - last_bytes) as f64 / elapsed_secs
+                    } else {
+                        0.0
+                    };
+                    let speed_str = if speed_bps > 1024.0 * 1024.0 {
+                        format!("{:.1} MB/s", speed_bps / (1024.0 * 1024.0))
+                    } else {
+                        format!("{:.0} KB/s", speed_bps / 1024.0)
+                    };
+                    let percent = if total_size > 0 {
+                        ((downloaded as f64 / total_size as f64) * 100.0).min(99.9)
+                    } else {
+                        50.0
+                    };
+                    let eta_secs = if speed_bps > 0.0 && total_size > downloaded {
+                        ((total_size - downloaded) as f64 / speed_bps) as u64
+                    } else {
+                        0
+                    };
+                    let eta_str = format!("{:02}:{:02}", eta_secs / 60, eta_secs % 60);
+
+                    let _ = app_clone.emit(
+                        "ytdlp_progress",
+                        YtDlpProgressPayload {
+                            download_id: d_id.clone(),
+                            percent,
+                            speed: speed_str,
+                            eta: eta_str,
+                            total_size: total_size_str.clone(),
+                            status: "downloading".to_string(),
+                            file_path: None,
+                            error: None,
+                        },
+                    );
+                    last_emit = now;
+                    last_bytes = downloaded;
+                }
+            }
+
+            let _ = file.flush().await;
+
+            let _ = app_clone.emit(
+                "ytdlp_progress",
+                YtDlpProgressPayload {
+                    download_id: d_id.clone(),
+                    percent: 100.0,
+                    speed: "Done".to_string(),
+                    eta: "00:00".to_string(),
+                    total_size: total_size_str,
+                    status: "completed".to_string(),
+                    file_path: Some(target_path_clone.to_string_lossy().to_string()),
+                    error: None,
+                },
+            );
+        });
+
+        return Ok(target_path.to_string_lossy().to_string());
+    }
+
+    // 2. YT-DLP Process Engine for Web Media / YouTube / Stream links
+    let output_template = format!("{}/%(title).80B [%(id)s].%(ext)s", download_dir.to_string_lossy());
+
+    let mut cmd = tokio::process::Command::new(&bin_path);
+    cmd.arg("--newline")
+       .arg("--no-playlist")
+       .arg("--windows-filenames")
+       .arg("--socket-timeout").arg("20")
+       .arg("--progress-template")
+       .arg("PROGRESS:%(progress._percent_str)s|%(progress._speed_str)s|%(progress._eta_str)s|%(progress._total_bytes_str)s")
+       .arg("-o")
+       .arg(&output_template);
+
     if !is_direct_file {
+        cmd.arg("--extractor-args")
+           .arg("youtube:player_client=ios,android,mweb,web");
+
         match format_type.as_str() {
             "audio_mp3" => {
                 cmd.args(&["-x", "--audio-format", "mp3", "--audio-quality", "320k"]);
@@ -2488,17 +3093,31 @@ async fn ytdlp_start_download(
     // Prepend -- to treat input strictly as URL positional argument
     cmd.arg("--").arg(&trimmed_url);
     cmd.stdout(Stdio::piped());
-    // Use null for stderr to prevent pipe buffer saturation and process deadlocks
-    cmd.stderr(Stdio::null());
+    cmd.stderr(Stdio::piped());
 
     let mut child = cmd.spawn().map_err(|e| format!("Failed to spawn yt-dlp: {}", e))?;
     let stdout = child.stdout.take().ok_or("Failed to open child stdout")?;
+    let stderr = child.stderr.take().ok_or("Failed to open child stderr")?;
 
     let d_id = download_id.clone();
     let app_clone = app.clone();
     let download_dir_clone = download_dir.clone();
 
     tokio::spawn(async move {
+        let last_stderr = std::sync::Arc::new(tokio::sync::Mutex::new(String::new()));
+        let last_stderr_clone = last_stderr.clone();
+
+        tokio::spawn(async move {
+            let mut err_reader = tokio::io::BufReader::new(stderr).lines();
+            while let Ok(Some(line)) = err_reader.next_line().await {
+                let trimmed = line.trim();
+                if !trimmed.is_empty() && !trimmed.starts_with("WARNING:") {
+                    let mut lock = last_stderr_clone.lock().await;
+                    *lock = trimmed.to_string();
+                }
+            }
+        });
+
         let mut reader = tokio::io::BufReader::new(stdout).lines();
         let mut final_file_path: Option<String> = None;
 
@@ -2562,7 +3181,7 @@ async fn ytdlp_start_download(
                                     } else {
                                         None
                                     }
-                                })
+                                    })
                                 .collect();
                             files.sort_by(|a, b| b.1.cmp(&a.1));
                             files.first().map(|(p, _)| p.to_string_lossy().to_string())
@@ -2587,6 +3206,17 @@ async fn ytdlp_start_download(
                 );
             }
             Ok(status) => {
+                let captured_err = last_stderr.lock().await.clone();
+                let friendly_err = if !captured_err.is_empty() {
+                    if captured_err.contains("timed out") || captured_err.contains("Connection refused") || captured_err.contains("unreachable") {
+                        format!("Server unreachable or connection timed out: {}", captured_err)
+                    } else {
+                        captured_err
+                    }
+                } else {
+                    format!("Exit code: {}", status)
+                };
+
                 let _ = app_clone.emit(
                     "ytdlp_progress",
                     YtDlpProgressPayload {
@@ -2597,7 +3227,7 @@ async fn ytdlp_start_download(
                         total_size: String::new(),
                         status: "error".to_string(),
                         file_path: None,
-                        error: Some(format!("Exit code: {}", status)),
+                        error: Some(friendly_err),
                     },
                 );
             }
@@ -2839,6 +3469,188 @@ async fn fetch_bdix_api(state: State<'_, AppState>, url: String) -> Result<Strin
     Ok(text)
 }
 
+#[tauri::command]
+async fn play_in_external_player(url: String, title: Option<String>) -> Result<(), String> {
+    let window_title = title.unwrap_or_else(|| "Ovilo Stream".to_string());
+
+    #[cfg(target_os = "linux")]
+    {
+        // Check for mpv
+        if std::path::Path::new("/usr/bin/mpv").exists() || std::process::Command::new("which").arg("mpv").output().map(|o| o.status.success()).unwrap_or(false) {
+            let res = std::process::Command::new("mpv")
+                .arg(format!("--title={}", window_title))
+                .arg("--force-window")
+                .arg(&url)
+                .spawn();
+            if res.is_ok() {
+                return Ok(());
+            }
+        }
+
+        // Check for vlc
+        if std::path::Path::new("/usr/bin/vlc").exists() || std::process::Command::new("which").arg("vlc").output().map(|o| o.status.success()).unwrap_or(false) {
+            let res = std::process::Command::new("vlc")
+                .arg(&url)
+                .spawn();
+            if res.is_ok() {
+                return Ok(());
+            }
+        }
+
+        // Fallback to xdg-open
+        let _ = std::process::Command::new("xdg-open").arg(&url).spawn()
+            .map_err(|e| format!("Failed to launch player: {}", e))?;
+        return Ok(());
+    }
+
+    #[cfg(target_os = "windows")]
+    {
+        // Try common VLC installation locations
+        let vlc_candidates = [
+            r"C:\Program Files\VideoLAN\VLC\vlc.exe",
+            r"C:\Program Files (x86)\VideoLAN\VLC\vlc.exe",
+        ];
+        for path in &vlc_candidates {
+            if std::path::Path::new(path).exists() {
+                if std::process::Command::new(path).arg(&url).spawn().is_ok() {
+                    return Ok(());
+                }
+            }
+        }
+
+        // Try 'vlc' or 'mpv' in PATH
+        if std::process::Command::new("vlc").arg(&url).spawn().is_ok() {
+            return Ok(());
+        }
+        if std::process::Command::new("mpv").arg(&url).spawn().is_ok() {
+            return Ok(());
+        }
+
+        // Fallback: system URL protocol handler
+        let _ = std::process::Command::new("cmd")
+            .args(["/C", "start", "", &url])
+            .spawn()
+            .map_err(|e| format!("Failed to launch external player: {}", e))?;
+        return Ok(());
+    }
+
+    #[cfg(target_os = "macos")]
+    {
+        let _ = std::process::Command::new("open").arg(&url).spawn()
+            .map_err(|e| format!("Failed to launch player: {}", e))?;
+        return Ok(());
+    }
+
+    #[allow(unreachable_code)]
+    Ok(())
+}
+
+#[tauri::command]
+async fn check_mkv_support(app: AppHandle) -> Result<bool, String> {
+    Ok(resolve_ffmpeg_binary(&app).is_some())
+}
+
+#[derive(serde::Serialize, serde::Deserialize, Clone, Debug)]
+pub struct MkvAudioTrackInfo {
+    pub stream_index: u32,
+    pub audio_index: u32,
+    pub language: String,
+    pub label: String,
+}
+
+#[derive(serde::Serialize, serde::Deserialize, Clone, Debug)]
+pub struct MkvStreamMeta {
+    pub duration: f64,
+    pub duration_str: String,
+    pub audio_tracks: Vec<MkvAudioTrackInfo>,
+}
+
+fn format_duration_secs(secs: f64) -> String {
+    let total_secs = secs as u64;
+    let h = total_secs / 3600;
+    let m = (total_secs % 3600) / 60;
+    let s = total_secs % 60;
+    if h > 0 {
+        format!("{}:{:02}:{:02}", h, m, s)
+    } else {
+        format!("{:02}:{:02}", m, s)
+    }
+}
+
+#[tauri::command]
+async fn probe_mkv_meta(app: AppHandle, url: String) -> Result<MkvStreamMeta, String> {
+    let ffprobe_bin = resolve_ffmpeg_binary(&app)
+        .map(|p| {
+            let fname = p.file_name().and_then(|n| n.to_str()).unwrap_or("ffmpeg");
+            let probe_name = if fname.contains(".exe") { "ffprobe.exe" } else { "ffprobe" };
+            p.with_file_name(probe_name)
+        })
+        .unwrap_or_else(|| std::path::PathBuf::from("ffprobe"));
+
+    let out = tokio::process::Command::new(ffprobe_bin)
+        .arg("-v").arg("error")
+        .arg("-show_entries").arg("format=duration")
+        .arg("-select_streams").arg("a")
+        .arg("-show_entries").arg("stream=index:stream_tags=language,title")
+        .arg("-of").arg("json")
+        .arg(&url)
+        .output()
+        .await
+        .map_err(|e| format!("Failed to run ffprobe: {}", e))?;
+
+    if !out.status.success() {
+        return Err(String::from_utf8_lossy(&out.stderr).to_string());
+    }
+
+    let parsed: serde_json::Value = serde_json::from_slice(&out.stdout)
+        .map_err(|e| format!("JSON parse error: {}", e))?;
+
+    let duration = parsed.get("format")
+        .and_then(|f| f.get("duration"))
+        .and_then(|d| d.as_str())
+        .and_then(|s| s.parse::<f64>().ok())
+        .unwrap_or(0.0);
+
+    let mut audio_tracks = Vec::new();
+    if let Some(streams) = parsed.get("streams").and_then(|s| s.as_array()) {
+        for (i, stream) in streams.iter().enumerate() {
+            let stream_idx = stream.get("index").and_then(|v| v.as_u64()).unwrap_or(i as u64) as u32;
+            let lang = stream.get("tags")
+                .and_then(|t| t.get("language"))
+                .and_then(|l| l.as_str())
+                .unwrap_or("und")
+                .to_string();
+
+            let label = match lang.to_lowercase().as_str() {
+                "hin" | "hi" | "hindi" => "Hindi".to_string(),
+                "eng" | "en" | "english" => "English".to_string(),
+                "tam" | "ta" | "tamil" => "Tamil".to_string(),
+                "tel" | "te" | "telugu" => "Telugu".to_string(),
+                "ben" | "bn" | "bangla" | "bengali" => "Bangla".to_string(),
+                "spa" | "es" | "spanish" => "Spanish".to_string(),
+                "fre" | "fra" | "fr" | "french" => "French".to_string(),
+                "ger" | "deu" | "de" | "german" => "German".to_string(),
+                "jpn" | "ja" | "japanese" => "Japanese".to_string(),
+                "kor" | "ko" | "korean" => "Korean".to_string(),
+                _ => format!("Track {}", i + 1),
+            };
+
+            audio_tracks.push(MkvAudioTrackInfo {
+                stream_index: stream_idx,
+                audio_index: i as u32,
+                language: lang,
+                label,
+            });
+        }
+    }
+
+    Ok(MkvStreamMeta {
+        duration,
+        duration_str: format_duration_secs(duration),
+        audio_tracks,
+    })
+}
+
 // ---------------------------------------------------------
 // Application Entry
 // ---------------------------------------------------------
@@ -2893,7 +3705,10 @@ pub fn run() {
             ytdlp_open_media_file,
             get_disk_downloads,
             delete_disk_download,
-            fetch_bdix_api
+            fetch_bdix_api,
+            play_in_external_player,
+            check_mkv_support,
+            probe_mkv_meta
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

@@ -18,6 +18,7 @@ import {
   Check,
   AlertCircle,
   Disc,
+  Play,
 } from 'lucide-react';
 import {
   useDownloadManager,
@@ -40,6 +41,9 @@ import { KinoDownloadButton } from './KinoDownloadButton';
 
 export interface DownloadsUnifiedViewProps {
   initialSubTab?: 'downloads' | 'ytdlp' | 'ftp';
+  initialSearchQuery?: string;
+  onClearInitialSearchQuery?: () => void;
+  onPlayDirectVideo?: (title: string, streamUrl: string, poster?: string) => void;
 }
 
 // Progressive thumbnail candidate component for BDIX FTP
@@ -92,6 +96,9 @@ const FtpMediaThumbnail: React.FC<{ item: BdixPackage }> = ({ item }) => {
 
 export const DownloadsUnifiedView: React.FC<DownloadsUnifiedViewProps> = ({
   initialSubTab = 'downloads',
+  initialSearchQuery = '',
+  onClearInitialSearchQuery,
+  onPlayDirectVideo,
 }) => {
   const {
     downloads,
@@ -103,7 +110,7 @@ export const DownloadsUnifiedView: React.FC<DownloadsUnifiedViewProps> = ({
   } = useDownloadManager();
 
   const [activeTab, setActiveTab] = useState<'downloads' | 'ftp'>(
-    initialSubTab === 'ftp' ? 'ftp' : 'downloads'
+    initialSubTab === 'ftp' || Boolean(initialSearchQuery) ? 'ftp' : 'downloads'
   );
 
   // YT-DLP Downloader State
@@ -113,12 +120,53 @@ export const DownloadsUnifiedView: React.FC<DownloadsUnifiedViewProps> = ({
   const [downloadType, setDownloadType] = useState<'video' | 'audio'>('video');
   const [selectedQuality, setSelectedQuality] = useState('1080p');
 
-  // FTP Explorer State
-  const [activeServer, setActiveServer] = useState<'server1' | 'server2'>('server1');
+  // FTP Explorer State - default to 'all' servers so searching finds releases across both servers
+  const [activeServer, setActiveServer] = useState<'all' | 'server1' | 'server2'>('all');
   const [activeCategory, setActiveCategory] = useState<string>('all');
-  const [ftpSearchQuery, setFtpSearchQuery] = useState('');
+  const [ftpSearchQuery, setFtpSearchQuery] = useState(initialSearchQuery || '');
   const [ftpFiles, setFtpFiles] = useState<BdixPackage[]>([]);
   const [loadingFtp, setLoadingFtp] = useState(false);
+  const [selectedFilePkg, setSelectedFilePkg] = useState<BdixPackage | null>(null);
+
+  // Play direct video stream from BDIX FTP
+  const handlePlayFtp = (
+    pkg: BdixPackage,
+    file?: { name: string; url: string; extension: string }
+  ) => {
+    const targetFile = file || (pkg.files && pkg.files[0]);
+    if (!targetFile || !targetFile.url) return;
+    const title = targetFile.name ? targetFile.name.replace(/\.[^/.]+$/, '') : pkg.title;
+    const poster = pkg.thumbnailUrl || undefined;
+
+    if (onPlayDirectVideo) {
+      onPlayDirectVideo(title, targetFile.url, poster);
+    } else {
+      window.dispatchEvent(
+        new CustomEvent('ovilo_play_ftp_video', {
+          detail: { title, url: targetFile.url, poster },
+        })
+      );
+    }
+  };
+
+  const handlePlayExternalFtp = async (
+    pkg: BdixPackage,
+    file?: { name: string; url: string; extension: string }
+  ) => {
+    const targetFile = file || (pkg.files && pkg.files[0]);
+    if (!targetFile || !targetFile.url) return;
+    const title = targetFile.name ? targetFile.name.replace(/\.[^/.]+$/, '') : pkg.title;
+    try {
+      const { invoke } = await import('@tauri-apps/api/core');
+      await invoke('play_in_external_player', {
+        url: targetFile.url,
+        title: `${title} - Ovilo Stream`,
+      });
+    } catch (e) {
+      console.warn('External play error:', e);
+      handlePlayFtp(pkg, file);
+    }
+  };
 
   // Disk downloads list
   const [diskFiles, setDiskFiles] = useState<DiskFileItem[]>([]);
@@ -137,13 +185,15 @@ export const DownloadsUnifiedView: React.FC<DownloadsUnifiedViewProps> = ({
     return () => clearInterval(interval);
   }, []);
 
-  // Fetch BDIX FTP items
-  const loadFtp = () => {
+  // Fetch BDIX FTP items with full-text backend query support
+  const loadFtp = (queryOverride?: string) => {
     setLoadingFtp(true);
+    const q = (queryOverride !== undefined ? queryOverride : ftpSearchQuery).trim();
     fetchBdixData({
-      source: activeServer,
+      source: activeServer !== 'all' ? activeServer : undefined,
       category: activeCategory !== 'all' ? activeCategory : undefined,
-      limit: 30,
+      q: q || undefined,
+      limit: 60,
     })
       .then((res) => {
         if (res.packages) setFtpFiles(res.packages);
@@ -153,8 +203,33 @@ export const DownloadsUnifiedView: React.FC<DownloadsUnifiedViewProps> = ({
   };
 
   useEffect(() => {
-    loadFtp();
-  }, [activeServer, activeCategory]);
+    const handler = setTimeout(() => {
+      loadFtp(ftpSearchQuery);
+    }, 350);
+    return () => clearTimeout(handler);
+  }, [ftpSearchQuery, activeServer, activeCategory]);
+
+  useEffect(() => {
+    if (initialSearchQuery) {
+      setFtpSearchQuery(initialSearchQuery);
+      setActiveTab('ftp');
+      loadFtp(initialSearchQuery);
+      onClearInitialSearchQuery?.();
+    }
+  }, [initialSearchQuery]);
+
+  useEffect(() => {
+    const handleFtpSearchEvent = (e: any) => {
+      const q = e.detail || '';
+      if (q) {
+        setActiveTab('ftp');
+        setFtpSearchQuery(q);
+        loadFtp(q);
+      }
+    };
+    window.addEventListener('ovilo_open_ftp_search', handleFtpSearchEvent);
+    return () => window.removeEventListener('ovilo_open_ftp_search', handleFtpSearchEvent);
+  }, []);
 
   // Handle URL fetch
   const handleFetchInfo = async () => {
@@ -251,20 +326,36 @@ export const DownloadsUnifiedView: React.FC<DownloadsUnifiedViewProps> = ({
     }
   };
 
-  // Download directly from BDIX FTP
-  const handleDownloadFtp = async (pkg: BdixPackage) => {
-    const file = pkg.files[0];
+  // Download specific file directly from BDIX FTP
+  const handleDownloadFtpFile = async (
+    pkg: BdixPackage,
+    file: { name: string; url: string; extension: string }
+  ) => {
     if (!file || !file.url) return;
     try {
+      const serverLabel = pkg.source === 'server1' ? 'High-Speed Server 1' : 'High-Speed Server 2';
       await startDownload({
         url: file.url,
-        title: pkg.title,
+        title: file.name ? file.name.replace(/\.[^/.]+$/, '') : pkg.title,
         formatType: file.extension || 'file',
-        formatLabel: file.extension?.toUpperCase() || 'FTP File',
+        formatLabel: `${serverLabel} (${(file.extension || 'FILE').toUpperCase()})`,
         thumbnail: pkg.thumbnailUrl || undefined,
       });
+      setActiveTab('downloads');
       refreshDiskDownloads();
-    } catch {}
+    } catch (err) {
+      console.warn('FTP download start error:', err);
+    }
+  };
+
+  // Download from BDIX FTP (prompt if multiple files exist)
+  const handleDownloadFtp = async (pkg: BdixPackage) => {
+    if (!pkg.files || pkg.files.length === 0) return;
+    if (pkg.files.length === 1) {
+      handleDownloadFtpFile(pkg, pkg.files[0]);
+    } else {
+      setSelectedFilePkg(pkg);
+    }
   };
 
   const totalUsedStorage = diskFiles.reduce((acc, f) => acc + (f.size_bytes || 0), 0);
@@ -276,10 +367,7 @@ export const DownloadsUnifiedView: React.FC<DownloadsUnifiedViewProps> = ({
     return `${m}:${s.toString().padStart(2, '0')}`;
   };
 
-  const filteredFtpFiles = ftpFiles.filter((pkg) => {
-    if (!ftpSearchQuery.trim()) return true;
-    return pkg.title.toLowerCase().includes(ftpSearchQuery.toLowerCase());
-  });
+  const filteredFtpFiles = ftpFiles;
 
   return (
     <div className="w-full select-none font-['DM_Sans',sans-serif] pb-20">
@@ -648,24 +736,45 @@ export const DownloadsUnifiedView: React.FC<DownloadsUnifiedViewProps> = ({
                         )}
 
                         {isErr && (
-                          <button
-                            type="button"
-                            onClick={() => {
-                              removeDownload(d.id);
-                              startDownload({
-                                url: d.url,
-                                title: d.title,
-                                uploader: d.uploader,
-                                thumbnail: d.thumbnail,
-                                formatType: d.formatType,
-                                formatLabel: d.formatLabel,
-                              });
-                            }}
-                            className="p-1.5 rounded-xl bg-white/5 hover:bg-white/15 text-neutral-300 hover:text-white cursor-pointer border border-white/10 transition-colors"
-                            title="Retry download"
-                          >
-                            <RotateCcw className="w-3.5 h-3.5" />
-                          </button>
+                          <>
+                            <button
+                              type="button"
+                              onClick={() => {
+                                const clean = d.title
+                                  .replace(/\b(1080p|720p|480p|2160p|4k|hdtc|web-?dl|bluray|x264|x265|hevc|dual audio|hindi|clean|cam|imax|v[0-9]+)\b/gi, '')
+                                  .replace(/[\[\]\(\)\-_]/g, ' ')
+                                  .replace(/\s+/g, ' ')
+                                  .trim();
+                                const searchQuery = clean.length >= 2 ? clean : d.title;
+                                setActiveTab('ftp');
+                                setFtpSearchQuery(searchQuery);
+                                loadFtp(searchQuery);
+                              }}
+                              className="px-2.5 py-1 rounded-xl bg-[#ffd24d] hover:bg-[#ffe066] text-black text-xs font-extrabold flex items-center gap-1.5 cursor-pointer transition-all border-0 shadow-sm"
+                              title="Search working mirrors for this release in BDIX FTP"
+                            >
+                              <Search className="w-3.5 h-3.5" />
+                              <span>Find Mirror</span>
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => {
+                                removeDownload(d.id);
+                                startDownload({
+                                  url: d.url,
+                                  title: d.title,
+                                  uploader: d.uploader,
+                                  thumbnail: d.thumbnail,
+                                  formatType: d.formatType,
+                                  formatLabel: d.formatLabel,
+                                });
+                              }}
+                              className="p-1.5 rounded-xl bg-white/5 hover:bg-white/15 text-neutral-300 hover:text-white cursor-pointer border border-white/10 transition-colors"
+                              title="Retry download"
+                            >
+                              <RotateCcw className="w-3.5 h-3.5" />
+                            </button>
+                          </>
                         )}
 
                         <button
@@ -781,35 +890,47 @@ export const DownloadsUnifiedView: React.FC<DownloadsUnifiedViewProps> = ({
           {/* Server Switcher + Category Filters + Search */}
           <div className="kino-box" style={{ padding: '18px 22px' }}>
             <div className="flex flex-wrap items-center justify-between gap-3 mb-4">
-              {/* Server 1 / Server 2 Switcher */}
-              <div className="flex items-center gap-2">
+              {/* All / Server 1 / Server 2 Switcher */}
+              <div className="flex items-center gap-1.5 flex-wrap">
+                <button
+                  onClick={() => setActiveServer('all')}
+                  className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold cursor-pointer transition-all border ${
+                    activeServer === 'all'
+                      ? 'bg-[#ffd24d] text-black border-[#ffd24d] shadow-md font-extrabold'
+                      : 'bg-white/5 text-neutral-400 border-white/10 hover:text-white'
+                  }`}
+                >
+                  <span className={`w-2 h-2 rounded-full ${activeServer === 'all' ? 'bg-black' : 'bg-[var(--kino-yellow)]'}`} />
+                  <span>All Servers</span>
+                </button>
+
                 <button
                   onClick={() => setActiveServer('server1')}
-                  className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold cursor-pointer transition-all border ${
+                  className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold cursor-pointer transition-all border ${
                     activeServer === 'server1'
-                      ? 'bg-[#ffd24d] text-black border-[#ffd24d] shadow-md'
+                      ? 'bg-[#ffd24d] text-black border-[#ffd24d] shadow-md font-extrabold'
                       : 'bg-white/5 text-neutral-400 border-white/10 hover:text-white'
                   }`}
                 >
                   <span className={`w-2 h-2 rounded-full ${activeServer === 'server1' ? 'bg-black' : 'bg-[var(--kino-mint)]'}`} />
-                  <span>High-Speed Server 1</span>
+                  <span>Server 1 (Dhaka)</span>
                 </button>
 
                 <button
                   onClick={() => setActiveServer('server2')}
-                  className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold cursor-pointer transition-all border ${
+                  className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold cursor-pointer transition-all border ${
                     activeServer === 'server2'
-                      ? 'bg-[#ffd24d] text-black border-[#ffd24d] shadow-md'
+                      ? 'bg-[#ffd24d] text-black border-[#ffd24d] shadow-md font-extrabold'
                       : 'bg-white/5 text-neutral-400 border-white/10 hover:text-white'
                   }`}
                 >
                   <span className={`w-2 h-2 rounded-full ${activeServer === 'server2' ? 'bg-black' : 'bg-[var(--kino-mint)]'}`} />
-                  <span>High-Speed Server 2</span>
+                  <span>Server 2 (CircleFTP)</span>
                 </button>
               </div>
 
               {/* FTP Search Input */}
-              <div className="kino-search" style={{ width: '280px' }}>
+              <div className="kino-search flex items-center gap-2" style={{ width: '280px' }}>
                 <Search className="w-4 h-4 text-[#a9a7a2] shrink-0" />
                 <input
                   type="text"
@@ -818,6 +939,16 @@ export const DownloadsUnifiedView: React.FC<DownloadsUnifiedViewProps> = ({
                   placeholder="Search movies, games, software..."
                   className="bg-transparent border-0 outline-none text-[#f2efe9] text-xs w-full"
                 />
+                {ftpSearchQuery && (
+                  <button
+                    type="button"
+                    onClick={() => setFtpSearchQuery('')}
+                    className="text-neutral-400 hover:text-white cursor-pointer border-0 bg-transparent p-0 text-xs shrink-0"
+                    title="Clear search"
+                  >
+                    ✕
+                  </button>
+                )}
               </div>
             </div>
 
@@ -882,13 +1013,45 @@ export const DownloadsUnifiedView: React.FC<DownloadsUnifiedViewProps> = ({
                       </div>
                     </div>
 
-                    <button
-                      onClick={() => handleDownloadFtp(pkg)}
-                      className="b rip mt-2.5 w-full py-1.5 rounded-lg bg-white/10 hover:bg-[#ffd24d] hover:text-black text-white text-[11px] font-bold flex items-center justify-center gap-1.5 transition-all cursor-pointer border-0"
-                    >
-                      <Download className="w-3 h-3" />
-                      <span>Download</span>
-                    </button>
+                    {/* Actions: Watch Now (Direct Stream) & Download (Get) */}
+                    {pkg.category === 'video' ||
+                    pkg.primaryExtension === 'mkv' ||
+                    pkg.primaryExtension === 'mp4' ||
+                    pkg.primaryExtension === 'webm' ? (
+                      <div className="flex items-center gap-1.5 mt-2.5">
+                        <button
+                          onClick={() => {
+                            if (pkg.files && pkg.files.length > 1) {
+                              setSelectedFilePkg(pkg);
+                            } else {
+                              handlePlayFtp(pkg);
+                            }
+                          }}
+                          className="b rip flex-1 py-1.5 rounded-lg bg-[#ffd24d] hover:bg-[#ffe066] text-black text-[11px] font-extrabold flex items-center justify-center gap-1 transition-all cursor-pointer border-0 shadow-sm"
+                          title="Watch instantly in high-speed player"
+                        >
+                          <Play className="w-3 h-3 fill-black text-black" />
+                          <span>Watch</span>
+                        </button>
+
+                        <button
+                          onClick={() => handleDownloadFtp(pkg)}
+                          className="b rip px-2.5 py-1.5 rounded-lg bg-white/10 hover:bg-white/20 text-white text-[11px] font-bold flex items-center justify-center gap-1 transition-all cursor-pointer border-0"
+                          title="Download file to computer"
+                        >
+                          <Download className="w-3 h-3" />
+                          <span>{pkg.files && pkg.files.length > 1 ? `Get (${pkg.files.length})` : 'Get'}</span>
+                        </button>
+                      </div>
+                    ) : (
+                      <button
+                        onClick={() => handleDownloadFtp(pkg)}
+                        className="b rip mt-2.5 w-full py-1.5 rounded-lg bg-white/10 hover:bg-[#ffd24d] hover:text-black text-white text-[11px] font-bold flex items-center justify-center gap-1.5 transition-all cursor-pointer border-0"
+                      >
+                        <Download className="w-3 h-3" />
+                        <span>{pkg.files && pkg.files.length > 1 ? `Choose (${pkg.files.length} Files)` : 'Download'}</span>
+                      </button>
+                    )}
                   </div>
                 </div>
               ))}
@@ -898,6 +1061,91 @@ export const DownloadsUnifiedView: React.FC<DownloadsUnifiedViewProps> = ({
               No files found matching "{ftpSearchQuery}". Try another search or category.
             </div>
           )}
+        </div>
+      )}
+
+      {/* Multiple Files Selection Modal */}
+      {selectedFilePkg && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-md animate-fade-in">
+          <div className="kino-box max-w-lg w-full p-5 border border-white/20 shadow-2xl relative rounded-2xl bg-[#141418]">
+            <div className="flex items-center justify-between pb-3 border-b border-white/10">
+              <div className="min-w-0 pr-3">
+                <h3 className="text-sm font-extrabold text-white truncate">
+                  {formatMediaTitle(selectedFilePkg.title)}
+                </h3>
+                <p className="text-[11px] text-neutral-400 mt-0.5">
+                  Select a version or quality to watch or download ({selectedFilePkg.files.length} available)
+                </p>
+              </div>
+              <button
+                onClick={() => setSelectedFilePkg(null)}
+                className="p-1.5 rounded-xl bg-white/10 hover:bg-white/20 text-neutral-300 hover:text-white cursor-pointer transition-colors border-0"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            <div className="mt-3 space-y-2 max-h-[60vh] overflow-y-auto pr-1">
+              {selectedFilePkg.files.map((file, idx) => (
+                <div
+                  key={idx}
+                  className="flex items-center justify-between gap-3 p-3 rounded-xl bg-white/5 hover:bg-white/10 border border-white/5 transition-all"
+                >
+                  <div className="min-w-0 flex-1">
+                    <div className="text-xs font-bold text-white break-all leading-snug">
+                      {file.name}
+                    </div>
+                    <div className="text-[10px] text-neutral-400 mt-1 uppercase font-semibold">
+                      {(file.extension || 'FILE').toUpperCase()} · {selectedFilePkg.source === 'server1' ? 'High-Speed Server 1' : 'High-Speed Server 2'}
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-2 flex-shrink-0">
+                    {(selectedFilePkg.category === 'video' ||
+                      file.extension === 'mkv' ||
+                      file.extension === 'mp4' ||
+                      file.extension === 'webm' ||
+                      file.url.toLowerCase().endsWith('.mkv') ||
+                      file.url.toLowerCase().endsWith('.mp4')) && (
+                      <>
+                        <button
+                          onClick={() => {
+                            handlePlayExternalFtp(selectedFilePkg, file);
+                            setSelectedFilePkg(null);
+                          }}
+                          className="px-3 py-1.5 rounded-lg bg-[#ffd24d] hover:bg-[#ffe066] text-black text-xs font-extrabold flex items-center gap-1.5 cursor-pointer transition-all border-0 shadow-sm"
+                          title="Watch in external player (VLC / MPV) with Dolby AC3 5.1 & hardware acceleration"
+                        >
+                          <Play className="w-3.5 h-3.5 fill-black text-black" />
+                          <span>VLC / MPV</span>
+                        </button>
+                        <button
+                          onClick={() => {
+                            handlePlayFtp(selectedFilePkg, file);
+                            setSelectedFilePkg(null);
+                          }}
+                          className="px-2.5 py-1.5 rounded-lg bg-white/10 hover:bg-white/20 text-white text-xs font-bold flex items-center gap-1 cursor-pointer transition-all border border-white/10"
+                          title="Watch in app player"
+                        >
+                          <span>In-App</span>
+                        </button>
+                      </>
+                    )}
+                    <button
+                      onClick={() => {
+                        handleDownloadFtpFile(selectedFilePkg, file);
+                        setSelectedFilePkg(null);
+                      }}
+                      className="px-3 py-1.5 rounded-lg bg-white/10 hover:bg-white/20 text-white text-xs font-bold flex items-center gap-1.5 cursor-pointer transition-all border border-white/10"
+                      title="Download to computer"
+                    >
+                      <Download className="w-3.5 h-3.5" />
+                      <span>Get</span>
+                    </button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
         </div>
       )}
     </div>

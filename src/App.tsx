@@ -58,12 +58,45 @@ const AppContent: React.FC = () => {
     item: MediaItem;
     season?: number;
     episode?: number;
+    directUrl?: string;
   } | null>(null);
   const [searchOpen, setSearchOpen] = useState(false);
   const [musicSearchQuery, setMusicSearchQuery] = useState('');
   const [moviesSearchQuery, setMoviesSearchQuery] = useState('');
   const [downloadsSearchQuery, setDownloadsSearchQuery] = useState('');
+  const [ftpInitialQuery, setFtpInitialQuery] = useState<string>('');
   const [musicSubTab, setMusicSubTab] = useState<string>('Hits');
+
+  const handleNavigateToFtp = (query: string) => {
+    setSelectedMedia(null);
+    setFtpInitialQuery(query);
+    setActiveTab('ftp');
+  };
+
+  const handlePlayDirectVideo = (title: string, url: string, poster?: string) => {
+    setPlayingMedia({
+      item: {
+        id: 0,
+        title,
+        overview: 'Direct High-Speed Media Stream',
+        poster_path: poster || null,
+        backdrop_path: poster || null,
+        vote_average: 10,
+        media_type: 'movie',
+      },
+      directUrl: url,
+    });
+  };
+
+  useEffect(() => {
+    const handlePlayFtpEvent = (e: any) => {
+      if (e.detail?.url) {
+        handlePlayDirectVideo(e.detail.title || 'Now Playing', e.detail.url, e.detail.poster);
+      }
+    };
+    window.addEventListener('ovilo_play_ftp_video', handlePlayFtpEvent);
+    return () => window.removeEventListener('ovilo_play_ftp_video', handlePlayFtpEvent);
+  }, []);
 
   useEffect(() => {
     const handleSubTab = (e: any) => {
@@ -858,6 +891,9 @@ const AppContent: React.FC = () => {
               {(activeTab === 'downloads' || activeTab === 'ytdlp' || activeTab === 'ftp') && (
                 <DownloadsUnifiedView
                   initialSubTab={activeTab === 'ftp' ? 'ftp' : activeTab === 'ytdlp' ? 'ytdlp' : 'downloads'}
+                  initialSearchQuery={ftpInitialQuery}
+                  onClearInitialSearchQuery={() => setFtpInitialQuery('')}
+                  onPlayDirectVideo={handlePlayDirectVideo}
                 />
               )}
 
@@ -900,6 +936,7 @@ const AppContent: React.FC = () => {
         isFavorite={selectedMedia ? favoriteIds.has(selectedMedia.id) : false}
         onToggleFavorite={handleToggleFavorite}
         onSelectSimilar={(sim) => setSelectedMedia(sim)}
+        onNavigateToFtp={handleNavigateToFtp}
       />
 
       {/* VidSrc Video Player Canvas View */}
@@ -908,6 +945,7 @@ const AppContent: React.FC = () => {
           item={playingMedia.item}
           season={playingMedia.season}
           episode={playingMedia.episode}
+          directUrl={playingMedia.directUrl}
           onBack={() => setPlayingMedia(null)}
           onEpisodeChange={(newSeason, newEpisode) => {
             setPlayingMedia((prev) =>

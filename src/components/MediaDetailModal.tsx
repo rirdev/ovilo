@@ -27,6 +27,7 @@ interface MediaDetailModalProps {
   isFavorite?: boolean;
   onToggleFavorite?: (item: MediaItem) => void;
   onSelectSimilar?: (item: MediaItem) => void;
+  onNavigateToFtp?: (query: string) => void;
 }
 
 export const MediaDetailModal: React.FC<MediaDetailModalProps> = ({
@@ -36,12 +37,12 @@ export const MediaDetailModal: React.FC<MediaDetailModalProps> = ({
   isFavorite = false,
   onToggleFavorite,
   onSelectSimilar,
+  onNavigateToFtp,
 }) => {
   const [details, setDetails] = useState<MediaDetails | null>(null);
   const [selectedSeason, setSelectedSeason] = useState<number>(1);
   const [episodes, setEpisodes] = useState<Episode[]>([]);
   const [loadingEpisodes, setLoadingEpisodes] = useState(false);
-  const [selectedQuality, setSelectedQuality] = useState<'4k' | '1080p' | '720p'>('1080p');
   const [downloadToast, setDownloadToast] = useState<string | null>(null);
   const [ftpMirrors, setFtpMirrors] = useState<BdixPackage[]>([]);
   const [loadingMirrors, setLoadingMirrors] = useState<boolean>(false);
@@ -114,18 +115,43 @@ export const MediaDetailModal: React.FC<MediaDetailModalProps> = ({
     }
   };
 
+  const handleHeroDownloadClick = () => {
+    const rawClean = (details?.title || details?.name || item?.title || (item as any)?.name || '').replace(/[:\-_\.]/g, ' ').replace(/\s+/g, ' ').trim();
+    if (onNavigateToFtp) {
+      onClose();
+      onNavigateToFtp(rawClean);
+    } else {
+      window.dispatchEvent(new CustomEvent('ovilo_open_ftp_search', { detail: rawClean }));
+      onClose();
+    }
+  };
+
+  const handleEpisodeDownload = (epNum: number) => {
+    const sStr = selectedSeason < 10 ? `S0${selectedSeason}` : `S${selectedSeason}`;
+    const eStr = epNum < 10 ? `E0${epNum}` : `E${epNum}`;
+    const cleanTitle = (details?.title || details?.name || item?.title || (item as any)?.name || '').replace(/[:\-_\.]/g, ' ').replace(/\s+/g, ' ').trim();
+    const query = `${cleanTitle} ${sStr}${eStr}`;
+    if (onNavigateToFtp) {
+      onClose();
+      onNavigateToFtp(query);
+    } else {
+      window.dispatchEvent(new CustomEvent('ovilo_open_ftp_search', { detail: query }));
+      onClose();
+    }
+  };
+
   // Keyboard escape listener
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.key === 'Escape') onClose();
       if (e.altKey && (e.key === 'd' || e.key === 'D')) {
         e.preventDefault();
-        handleDownload(selectedQuality);
+        handleHeroDownloadClick();
       }
     };
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [onClose, selectedQuality, selectedMirror, ftpMirrors, item]);
+  }, [onClose, onNavigateToFtp, details, item]);
 
   if (!item) return null;
 
@@ -167,42 +193,7 @@ export const MediaDetailModal: React.FC<MediaDetailModalProps> = ({
     ? details.recommendations.results.slice(0, 8)
     : [];
 
-  const handleDownload = async (quality: string) => {
-    // 1. If an FTP mirror is selected or available, download the high-speed file
-    const targetMirror = selectedMirror || (ftpMirrors.length > 0 ? ftpMirrors[0] : null);
-    if (targetMirror && targetMirror.files && targetMirror.files[0]?.url) {
-      return await handleStartFtpDownload(targetMirror);
-    }
 
-    // 2. Otherwise, trigger native download queue with direct media stream search
-    try {
-      const year = (item.release_date || (item as any).first_air_date || '').substring(0, 4);
-      const queryTitle = isTv
-        ? `${title} S${selectedSeason}E1`
-        : year
-        ? `${title} (${year})`
-        : title;
-
-      const dlId = await startDownload({
-        url: `ytsearch1:${title} official soundtrack`,
-        title: `${queryTitle} [${quality.toUpperCase()}]`,
-        formatType:
-          quality === '4k'
-            ? 'bestvideo+bestaudio/best'
-            : quality === '1080p'
-            ? 'bestvideo[height<=1080]+bestaudio/best[height<=1080]'
-            : 'bestvideo[height<=720]+bestaudio/best[height<=720]',
-        formatLabel: `Direct Media (${quality.toUpperCase()})`,
-        thumbnail: posterSrc,
-      });
-      setDownloadToast(`Download started: ${title} (${quality.toUpperCase()})`);
-      setTimeout(() => setDownloadToast(null), 4000);
-      return dlId;
-    } catch (e: any) {
-      setDownloadToast(`Download failed: ${e?.message || 'Error starting download'}`);
-      setTimeout(() => setDownloadToast(null), 3000);
-    }
-  };
 
   const handleStartFtpDownload = async (pkg: BdixPackage) => {
     const file = pkg.files && pkg.files[0];
@@ -378,8 +369,10 @@ export const MediaDetailModal: React.FC<MediaDetailModalProps> = ({
                   </button>
 
                   <KinoDownloadButton
-                    label={isTv ? 'Download season' : 'Download'}
-                    onDownload={() => handleDownload(selectedQuality)}
+                    label={isTv ? 'Download / Watch season' : 'Download / Watch'}
+                    tooltip="Download or watch from FTP server"
+                    title="Download or watch from FTP server"
+                    onDownload={handleHeroDownloadClick}
                   />
 
                   <button
@@ -412,18 +405,18 @@ export const MediaDetailModal: React.FC<MediaDetailModalProps> = ({
               /* SHEET 5: MOVIE DETAILS (Cast & Crew + Download selector + Similar Row)   */
               /* ========================================================================= */
               <>
-                <div style={{ display: 'grid', gridTemplateColumns: '1.7fr 1fr', gap: '16px', marginTop: '16px' }}>
+                <div className="grid grid-cols-1 md:grid-cols-[1.15fr_1fr] gap-4 mt-4">
                   {/* Left Box: Cast & Crew */}
-                  <div className="box" style={{ padding: '16px 20px', background: 'var(--kino-surface-hi)' }}>
+                  <div className="box min-w-0" style={{ padding: '16px 20px', background: 'var(--kino-surface-hi)' }}>
                     <div className="sec flex items-center justify-between mb-3">
                       <b style={{ fontSize: '15px' }}>Cast &amp; Crew</b>
                       <small style={{ color: 'var(--kino-on-var)', cursor: 'pointer' }}>Top Billed</small>
                     </div>
 
                     {/* Cast Row with real TMDB actor profile images */}
-                    <div className="cast">
+                    <div className="cast overflow-x-auto no-scrollbar">
                       {castList.map((c, i) => (
-                        <div key={c.id || i}>
+                        <div key={c.id || i} className="min-w-0">
                           <div
                             className="ac"
                             style={{
@@ -466,25 +459,35 @@ export const MediaDetailModal: React.FC<MediaDetailModalProps> = ({
                   </div>
 
                   {/* Right Box: Download Selector with High-Speed Server Integration */}
-                  <div id="movie-download-section" className="box" style={{ padding: '16px 20px', background: 'var(--kino-surface-hi)' }}>
-                    <div className="ph flex items-center gap-2.5 mb-3">
-                      <div
-                        className="ico flex items-center justify-center rounded-xl"
-                        style={{
-                          width: '32px',
-                          height: '32px',
-                          background: 'var(--kino-mint, #7ae2ba)',
-                          color: 'var(--kino-ink, #000)',
-                        }}
+                  <div id="movie-download-section" className="box min-w-0" style={{ padding: '16px 20px', background: 'var(--kino-surface-hi)' }}>
+                    <div className="ph flex items-center justify-between gap-2 mb-3">
+                      <div className="flex items-center gap-2.5 min-w-0">
+                        <div
+                          className="ico flex items-center justify-center rounded-xl shrink-0"
+                          style={{
+                            width: '32px',
+                            height: '32px',
+                            background: 'var(--kino-mint, #7ae2ba)',
+                            color: 'var(--kino-ink, #000)',
+                          }}
+                        >
+                          <Download className="w-4 h-4" />
+                        </div>
+                        <div className="min-w-0">
+                          <h3 style={{ fontSize: '15px', fontWeight: 700, margin: 0 }} className="truncate">High-Speed Download</h3>
+                          <small style={{ color: 'var(--kino-on-var)', fontSize: '11px' }} className="truncate block">
+                            {ftpMirrors.length > 0 ? `${ftpMirrors.length} FTP server mirrors found` : 'Saves to your Downloads folder'}
+                          </small>
+                        </div>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={handleHeroDownloadClick}
+                        className="text-[11px] text-[#ffd24d] hover:underline font-bold cursor-pointer border-0 bg-transparent shrink-0 whitespace-nowrap ml-1"
+                        title="Search full FTP repository for this title"
                       >
-                        <Download className="w-4 h-4" />
-                      </div>
-                      <div>
-                        <h3 style={{ fontSize: '16px', fontWeight: 700, margin: 0 }}>High-Speed Download</h3>
-                        <small style={{ color: 'var(--kino-on-var)', fontSize: '11px' }}>
-                          {ftpMirrors.length > 0 ? `${ftpMirrors.length} FTP server mirrors found` : 'Saves to your Downloads folder'}
-                        </small>
-                      </div>
+                        All Mirrors &rarr;
+                      </button>
                     </div>
 
                     {loadingMirrors ? (
@@ -494,9 +497,9 @@ export const MediaDetailModal: React.FC<MediaDetailModalProps> = ({
                       </div>
                     ) : ftpMirrors.length > 0 ? (
                       <div className="flex flex-col gap-2">
-                        <div className="text-[11px] font-semibold text-neutral-300 mb-0.5 flex items-center justify-between">
-                          <span>FTP Server Mirrors</span>
-                          <span className="text-[10px] text-[var(--kino-mint)] font-bold">UNLIMITED SPEED</span>
+                        <div className="text-[11px] font-semibold text-neutral-300 mb-0.5 flex items-center justify-between gap-2">
+                          <span className="truncate">FTP Server Mirrors</span>
+                          <span className="text-[10px] text-[var(--kino-mint)] font-bold shrink-0 whitespace-nowrap">UNLIMITED SPEED</span>
                         </div>
                         <div className="max-h-[175px] overflow-y-auto no-scrollbar flex flex-col gap-1.5 pr-0.5">
                           {ftpMirrors.map((pkg) => {
@@ -519,8 +522,8 @@ export const MediaDetailModal: React.FC<MediaDetailModalProps> = ({
                                       {formatMediaTitle(pkg.title)}
                                     </div>
                                     <div className="text-[10px] text-neutral-400 mt-0.5 flex items-center gap-2">
-                                      <span className="text-[var(--kino-mint)] font-medium">{sName}</span>
-                                      <span className="uppercase text-[9px] px-1 py-0.2 rounded bg-white/10 text-neutral-300">
+                                      <span className="text-[var(--kino-mint)] font-medium shrink-0">{sName}</span>
+                                      <span className="uppercase text-[9px] px-1 py-0.2 rounded bg-white/10 text-neutral-300 shrink-0">
                                         {pkg.primaryExtension || 'MKV'}
                                       </span>
                                     </div>
@@ -556,43 +559,17 @@ export const MediaDetailModal: React.FC<MediaDetailModalProps> = ({
                     ) : (
                       <div>
                         <div className="text-[11px] text-neutral-400 mb-2.5">
-                          Select quality for direct media download:
+                          Direct mirror not found on local subnet. You can search the full BDIX repository:
                         </div>
-                        <div
-                          onClick={() => setSelectedQuality('4k')}
-                          className={`dop ${selectedQuality === '4k' ? 'on' : ''}`}
-                        >
-                          <i />
-                          <b className="text-xs font-semibold">4K UHD</b>
-                          <span>8.1 GB</span>
-                        </div>
-
-                        <div
-                          onClick={() => setSelectedQuality('1080p')}
-                          className={`dop ${selectedQuality === '1080p' ? 'on' : ''}`}
-                        >
-                          <i />
-                          <b className="text-xs font-semibold">1080p</b>
-                          <span>2.4 GB</span>
-                        </div>
-
-                        <div
-                          onClick={() => setSelectedQuality('720p')}
-                          className={`dop ${selectedQuality === '720p' ? 'on' : ''}`}
-                        >
-                          <i />
-                          <b className="text-xs font-semibold">720p</b>
-                          <span>1.1 GB</span>
-                        </div>
-
-                        <div
-                          onClick={() => handleDownload(selectedQuality)}
-                          className="big-btn mt-3 cursor-pointer flex items-center justify-center gap-2"
+                        <button
+                          type="button"
+                          onClick={handleHeroDownloadClick}
+                          className="big-btn mt-2 cursor-pointer flex items-center justify-center gap-2 w-full"
                           style={{ height: '40px', fontSize: '13px' }}
                         >
                           <Download className="w-4 h-4" />
-                          <span>Start Download</span>
-                        </div>
+                          <span>Search on FTP Repository</span>
+                        </button>
                       </div>
                     )}
                   </div>
@@ -634,9 +611,9 @@ export const MediaDetailModal: React.FC<MediaDetailModalProps> = ({
               /* ========================================================================= */
               /* SHEET 6: SERIES DETAILS (Seasons & Episodes list + Cast List + Similar)   */
               /* ========================================================================= */
-              <div style={{ display: 'grid', gridTemplateColumns: '1.6fr 1fr', gap: '16px', marginTop: '16px' }}>
+              <div className="grid grid-cols-1 md:grid-cols-[1.3fr_1fr] gap-4 mt-4">
                 {/* Left Column: Season Selector Chips + Episodes Panel (.panel) */}
-                <div>
+                <div className="min-w-0">
                   <div className="chips flex items-center gap-2 mb-2">
                     {Array.from({ length: details?.number_of_seasons || 2 }, (_, i) => i + 1).map((sNum) => (
                       <span
@@ -693,10 +670,10 @@ export const MediaDetailModal: React.FC<MediaDetailModalProps> = ({
                           <div
                             onClick={(e) => {
                               e.stopPropagation();
-                              handleDownload(`S${selectedSeason}E${ep.episode_number || i + 1}`);
+                              handleEpisodeDownload(ep.episode_number || i + 1);
                             }}
                             className="p-1 text-[var(--kino-on-var)] hover:text-white cursor-pointer"
-                            title="Download episode"
+                            title="Search FTP mirror for this episode"
                           >
                             <Download className="w-4 h-4" />
                           </div>
@@ -711,7 +688,7 @@ export const MediaDetailModal: React.FC<MediaDetailModalProps> = ({
                 </div>
 
                 {/* Right Column: Cast & Crew Cards (.pc) + Recommendations */}
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
+                <div className="min-w-0" style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
                   <div className="box" style={{ padding: '14px 18px', background: 'var(--kino-surface-hi)' }}>
                     <div className="sec flex items-center justify-between mb-2">
                       <b style={{ fontSize: '15px' }}>Cast &amp; Crew</b>

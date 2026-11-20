@@ -35,38 +35,48 @@ const API_BASE = 'https://rirtech.netlify.app/api/downloads';
 
 import { invoke } from '@tauri-apps/api/core';
 
-export async function fetchBdixData(params: {
-  q?: string;
-  category?: string;
-  extension?: string;
-  source?: 'all' | 'server1' | 'server2';
-  page?: number;
-  limit?: number;
-}): Promise<BdixResponse> {
-  const queryParams = new URLSearchParams();
+function generateQueryVariants(q: string): string[] {
+  const trimmed = q.trim();
+  if (!trimmed) return [];
+  const variants: string[] = [trimmed];
 
-  if (params.q && params.q.trim()) {
-    queryParams.set('q', params.q.trim());
+  const lower = trimmed.toLowerCase();
+  let normalized = lower;
+  const wordPairs: [RegExp, string][] = [
+    [/\bspiderman\b/g, 'spider-man'],
+    [/\bspider man\b/g, 'spider-man'],
+    [/\bspiderverse\b/g, 'spider-verse'],
+    [/\bspider verse\b/g, 'spider-verse'],
+    [/\bbatman\b/g, 'bat-man'],
+    [/\bsuperman\b/g, 'super-man'],
+    [/\bironman\b/g, 'iron-man'],
+    [/\bxmen\b/g, 'x-men'],
+    [/\bavengers\b/g, 'avenger'],
+  ];
+
+  for (const [re, rep] of wordPairs) {
+    normalized = normalized.replace(re, rep);
+  }
+  if (normalized !== lower && !variants.includes(normalized)) {
+    variants.push(normalized);
   }
 
-  if (params.category && params.category !== 'all') {
-    queryParams.set('category', params.category);
+  // Without hyphens
+  const unhyphen = trimmed.replace(/-/g, ' ');
+  if (unhyphen !== trimmed && !variants.includes(unhyphen)) {
+    variants.push(unhyphen);
   }
 
-  if (params.extension && params.extension !== 'all') {
-    queryParams.set('extension', params.extension);
+  // Hyphenated variant of multi-words
+  const hyphenated = trimmed.replace(/\s+/g, '-');
+  if (hyphenated !== trimmed && !variants.includes(hyphenated)) {
+    variants.push(hyphenated);
   }
 
-  if (params.source && params.source !== 'all') {
-    queryParams.set('source', params.source);
-  }
+  return variants;
+}
 
-  queryParams.set('page', String(params.page || 1));
-  queryParams.set('limit', String(params.limit || 24));
-
-  const url = `${API_BASE}?${queryParams.toString()}`;
-
-  // Invoke native Rust reqwest client to bypass webview CORS restrictions
+async function fetchRawBdixUrl(url: string): Promise<BdixResponse> {
   try {
     const raw = await invoke<string>('fetch_bdix_api', { url });
     return JSON.parse(raw);
@@ -78,6 +88,104 @@ export async function fetchBdixData(params: {
     }
     return await res.json();
   }
+}
+
+export async function fetchBdixData(params: {
+  q?: string;
+  category?: string;
+  extension?: string;
+  source?: 'all' | 'server1' | 'server2';
+  page?: number;
+  limit?: number;
+}): Promise<BdixResponse> {
+  const query = params.q?.trim();
+
+  // If no query string, perform simple direct fetch
+  if (!query) {
+    const qp = new URLSearchParams();
+    if (params.category && params.category !== 'all') qp.set('category', params.category);
+    if (params.extension && params.extension !== 'all') qp.set('extension', params.extension);
+    if (params.source && params.source !== 'all') qp.set('source', params.source);
+    qp.set('page', String(params.page || 1));
+    qp.set('limit', String(params.limit || 30));
+    return fetchRawBdixUrl(`${API_BASE}?${qp.toString()}`);
+  }
+
+  // Multi-variant search to catch spelling variations (hyphens, spaces, compound words)
+  const variants = generateQueryVariants(query);
+
+  const fetchPromises = variants.map((v) => {
+    const qp = new URLSearchParams();
+    qp.set('q', v);
+    if (params.category && params.category !== 'all') qp.set('category', params.category);
+    if (params.extension && params.extension !== 'all') qp.set('extension', params.extension);
+    if (params.source && params.source !== 'all') qp.set('source', params.source);
+    qp.set('page', '1');
+    qp.set('limit', String(params.limit || 50));
+    return fetchRawBdixUrl(`${API_BASE}?${qp.toString()}`).catch(() => null);
+  });
+
+  const responses = await Promise.all(fetchPromises);
+  const packageMap = new Map<number, BdixPackage>();
+  let baseResponse: BdixResponse | null = null;
+
+  for (const r of responses) {
+    if (r && r.packages) {
+      if (!baseResponse) baseResponse = r;
+      for (const pkg of r.packages) {
+        if (!packageMap.has(pkg.id)) {
+          packageMap.set(pkg.id, pkg);
+        }
+      }
+    }
+  }
+
+  // Token fallback for multi-word phrases (e.g. "spiderman into the spiderverse")
+  if (packageMap.size === 0 && query.includes(' ')) {
+    const stopWords = ['into', 'the', 'and', 'from', 'with', 'movie', 'series', '2018', '2024'];
+    const tokens = query
+      .toLowerCase()
+      .replace(/[^\w\s-]/g, '')
+      .split(/\s+/)
+      .filter((w) => w.length >= 4 && !stopWords.includes(w));
+
+    const tokenPromises = tokens.slice(0, 3).map((token) => {
+      const qp = new URLSearchParams();
+      const tokenVar = generateQueryVariants(token)[1] || token;
+      qp.set('q', tokenVar);
+      if (params.category && params.category !== 'all') qp.set('category', params.category);
+      if (params.extension && params.extension !== 'all') qp.set('extension', params.extension);
+      if (params.source && params.source !== 'all') qp.set('source', params.source);
+      qp.set('page', '1');
+      qp.set('limit', '50');
+      return fetchRawBdixUrl(`${API_BASE}?${qp.toString()}`).catch(() => null);
+    });
+
+    const tokenResponses = await Promise.all(tokenPromises);
+    for (const r of tokenResponses) {
+      if (r && r.packages) {
+        if (!baseResponse) baseResponse = r;
+        for (const pkg of r.packages) {
+          if (!packageMap.has(pkg.id)) {
+            packageMap.set(pkg.id, pkg);
+          }
+        }
+      }
+    }
+  }
+
+  const mergedPackages = Array.from(packageMap.values());
+
+  return {
+    success: true,
+    total: mergedPackages.length,
+    page: params.page || 1,
+    limit: params.limit || mergedPackages.length,
+    totalPages: 1,
+    packages: mergedPackages,
+    source: params.source || 'all',
+    query,
+  };
 }
 
 /**
