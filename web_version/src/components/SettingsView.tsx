@@ -42,7 +42,6 @@ import {
 import {
   APP_CURRENT_VERSION,
   AppUpdateData,
-  checkAppUpdatesManual,
   subscribeToAppUpdates,
   openDownloadLink,
 } from '../services/updateService';
@@ -160,9 +159,8 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
 
   // App Cloud Updates state
   const [updateData, setUpdateData] = useState<AppUpdateData | null>(null);
-  const [isUpdateChecking, setIsUpdateChecking] = useState(false);
   const [isUpdateAvail, setIsUpdateAvail] = useState(false);
-  const [lastCheckedTime, setLastCheckedTime] = useState<string>('Just now');
+  const [lastCheckedTime] = useState<string>('Live');
 
   React.useEffect(() => {
     const unsub = subscribeToAppUpdates((up, newer) => {
@@ -171,19 +169,6 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
     });
     return () => unsub();
   }, []);
-
-  const handleManualCheckUpdates = async () => {
-    setIsUpdateChecking(true);
-    try {
-      const res = await checkAppUpdatesManual();
-      setUpdateData(res.update);
-      setIsUpdateAvail(res.isNewer);
-      const now = new Date();
-      setLastCheckedTime(now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }));
-    } finally {
-      setIsUpdateChecking(false);
-    }
-  };
 
   const localMusicCount = getLocalMusicFavorites().length;
 
@@ -449,7 +434,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
     { id: 'theme', label: 'Theme & Display', icon: Palette },
     { id: 'streaming', label: 'Streaming & Servers', icon: Server },
     { id: 'data', label: 'Storage & Cache', icon: HardDrive },
-    { id: 'updates', label: 'About & Updates', icon: DownloadCloud },
+    { id: 'updates', label: 'About Platform', icon: DownloadCloud },
   ];
 
   // Systematic Theme Surface Tokens (Color System & Dark Mode Design Skills)
@@ -1494,18 +1479,17 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
                     </div>
                     <div>
                       <h3 className={`text-lg font-extrabold ${isLight ? 'text-neutral-900' : 'text-white'}`}>
-                        App Updates & Release Channel
+                        OVILO Web Platform
                       </h3>
                       <p className={`text-xs mt-0.5 ${isLight ? 'text-neutral-500' : 'text-neutral-400'}`}>
-                        Manage native desktop client updates and check for the latest releases.
+                        Browser &amp; Cloud streaming platform · Running live on cloud infrastructure.
                       </p>
                     </div>
                   </div>
 
-                  <button
-                    onClick={handleManualCheckUpdates}
-                    disabled={isUpdateChecking}
-                    className={`px-4 py-2.5 rounded-xl font-bold text-xs flex items-center gap-2 cursor-pointer transition-all border ${
+                  <a
+                    href="/"
+                    className={`px-4 py-2.5 rounded-xl font-bold text-xs flex items-center gap-2 cursor-pointer transition-all border text-decoration-none ${
                       isLight
                         ? 'bg-neutral-100 hover:bg-neutral-200 text-neutral-800 border-neutral-200'
                         : isCobalt
@@ -1513,9 +1497,9 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
                         : 'bg-[#202127] hover:bg-[#282932] text-neutral-200 hover:text-white border-white/8'
                     }`}
                   >
-                    <RefreshCw className={`w-3.5 h-3.5 ${isUpdateChecking ? 'animate-spin' : ''}`} />
-                    <span>{isUpdateChecking ? 'Checking Cloud...' : 'Check for Updates'}</span>
-                  </button>
+                    <DownloadCloud className="w-3.5 h-3.5" />
+                    <span>Get Native Desktop Apps</span>
+                  </a>
                 </div>
 
                 {/* Status Hero Card */}

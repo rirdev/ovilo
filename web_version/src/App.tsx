@@ -33,7 +33,6 @@ import { UpdateNotificationModal } from './components/UpdateNotificationModal';
 import {
   subscribeToAppUpdates,
   AppUpdateData,
-  isUpdateDismissed,
   dismissUpdateForSession,
 } from './services/updateService';
 import {
@@ -499,15 +498,10 @@ const AppContent: React.FC = () => {
   const [updateModalOpen, setUpdateModalOpen] = useState(false);
 
   useEffect(() => {
-    const unsub = subscribeToAppUpdates((update, isNewer) => {
+    // Web version: live cloud updates are handled automatically via CDN/hosting; do not pop up desktop update dialogs
+    const unsub = subscribeToAppUpdates((update) => {
       setActiveUpdate(update);
-      if (isNewer && update) {
-        if (!isUpdateDismissed(update.version)) {
-          setUpdateModalOpen(true);
-        }
-      } else {
-        setUpdateModalOpen(false);
-      }
+      setUpdateModalOpen(false);
     });
     return () => unsub();
   }, []);

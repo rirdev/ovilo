@@ -9,7 +9,6 @@ import {
   syncToCloud,
 } from '../services/firebaseSync';
 import {
-  checkAppUpdatesManual,
   APP_CURRENT_VERSION,
 } from '../services/updateService';
 import { saveSettings } from '../services/api';
@@ -31,6 +30,7 @@ import {
   Trash2,
   Check,
   Edit3,
+  Download,
 } from 'lucide-react';
 import { AppSettings, UserData } from '../types';
 
@@ -78,10 +78,6 @@ export const ShowcaseSettingsView: React.FC<ShowcaseSettingsViewProps> = ({
   const [syncing, setSyncing] = useState(false);
   const [syncSuccess, setSyncSuccess] = useState(false);
 
-  // App updates state
-  const [updateStatus, setUpdateStatus] = useState<string | null>(null);
-  const [checkingUpdate, setCheckingUpdate] = useState(false);
-
   const isGuest = !profile || profile.isGuest || !profile.username;
   const displayName = profile?.username || profile?.name || 'Terabyte';
 
@@ -92,7 +88,7 @@ export const ShowcaseSettingsView: React.FC<ShowcaseSettingsViewProps> = ({
     { title: 'Appearance & Themes', desc: 'Material 3 themes, dark mode, colors', icon: Palette },
     { title: 'Playback & Streaming', desc: 'Preferred video server, auto-play next', icon: PlaySquare },
     { title: 'Cache & Watch History', desc: 'Clear watch history & local cache', icon: HardDrive },
-    { title: 'About & Updates', desc: `OVILO v${APP_CURRENT_VERSION}, check updates`, icon: Info },
+    { title: 'About OVILO', desc: 'OVILO Web Platform · Online streaming', icon: Info },
   ];
 
   const themes = [
@@ -250,24 +246,6 @@ export const ShowcaseSettingsView: React.FC<ShowcaseSettingsViewProps> = ({
     } catch {
     } finally {
       setSyncing(false);
-    }
-  };
-
-  // Check Updates
-  const handleCheckUpdates = async () => {
-    setCheckingUpdate(true);
-    setUpdateStatus(null);
-    try {
-      const up = await checkAppUpdatesManual();
-      if (up?.isNewer && up.update) {
-        setUpdateStatus(`New release available: v${up.update.version}!`);
-      } else {
-        setUpdateStatus(`Ovilo is up to date! (v${APP_CURRENT_VERSION})`);
-      }
-    } catch {
-      setUpdateStatus('Unable to reach update server.');
-    } finally {
-      setCheckingUpdate(false);
     }
   };
 
@@ -759,32 +737,42 @@ export const ShowcaseSettingsView: React.FC<ShowcaseSettingsViewProps> = ({
           )}
 
           {/* ============================================================== */}
-          {/* TAB 4: ABOUT & UPDATES                                         */}
+          {/* TAB 4: ABOUT OVILO WEB PLATFORM                               */}
           {/* ============================================================== */}
           {activeCategoryIdx === 4 && (
             <div className="space-y-3">
               <div className="kino-opt">
                 <div>
-                  <b>App Version</b>
-                  <small>OVILO Native Desktop (Rust + Tauri v2 + React)</small>
+                  <b>Platform &amp; Version</b>
+                  <small>OVILO Web Platform (Browser · Cloud Streaming)</small>
                 </div>
-                <span className="text-xs font-bold text-[#ffd24d] font-mono">v{APP_CURRENT_VERSION}</span>
+                <span className="text-xs font-bold text-[#ffd24d] font-mono">Web v{APP_CURRENT_VERSION}</span>
               </div>
 
               <div className="kino-opt">
                 <div>
-                  <b>Software Updates</b>
-                  <small>{updateStatus || 'Check GitHub / Cloud releases for new versions'}</small>
+                  <b>Platform Status</b>
+                  <small>Always up to date · Running live on cloud infrastructure</small>
                 </div>
-                <button
-                  onClick={handleCheckUpdates}
-                  disabled={checkingUpdate}
+                <span className="text-xs font-bold text-emerald-400 font-mono flex items-center gap-1.5">
+                  <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
+                  Live &amp; Up to Date
+                </span>
+              </div>
+
+              <div className="kino-opt">
+                <div>
+                  <b>Desktop &amp; Mobile Apps</b>
+                  <small>Download native apps for Windows, Linux &amp; Android for offline playback &amp; native performance</small>
+                </div>
+                <a
+                  href="/"
                   className="kino-btn y cursor-pointer"
-                  style={{ height: '34px', padding: '0 18px', fontSize: '12px' }}
+                  style={{ height: '34px', padding: '0 18px', fontSize: '12px', display: 'inline-flex', alignItems: 'center', gap: '6px', textDecoration: 'none' }}
                 >
-                  <RefreshCw className={`w-3.5 h-3.5 ${checkingUpdate ? 'animate-spin' : ''}`} />
-                  <span>{checkingUpdate ? 'Checking...' : 'Check for Updates'}</span>
-                </button>
+                  <Download className="w-3.5 h-3.5" />
+                  <span>Get Native Apps</span>
+                </a>
               </div>
             </div>
           )}
