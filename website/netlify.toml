@@ -6,6 +6,30 @@
   to = "/app/index.html"
   status = 200
 
+[[redirects]]
+  from = "/downloads/ovilo-0.1.0-x86_64.AppImage"
+  to = "https://github.com/rirdev/ovilo/releases/download/v0.1.0/OVILO_0.1.0_amd64.AppImage"
+  status = 302
+  force = false
+
+[[redirects]]
+  from = "/downloads/ovilo_0.1.0_amd64.deb"
+  to = "https://github.com/rirdev/ovilo/releases/download/v0.1.0/OVILO_0.1.0_amd64.deb"
+  status = 302
+  force = false
+
+[[redirects]]
+  from = "/downloads/ovilo-0.1.0-1.x86_64.rpm"
+  to = "https://github.com/rirdev/ovilo/releases/download/v0.1.0/OVILO-0.1.0-1.x86_64.rpm"
+  status = 302
+  force = false
+
+[[redirects]]
+  from = "/downloads/*"
+  to = "https://github.com/rirdev/ovilo/releases/download/v0.1.0/:splat"
+  status = 302
+  force = false
+
 [[headers]]
   for = "/*"
   [headers.values]
