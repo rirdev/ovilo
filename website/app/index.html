@@ -1,0 +1,50 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <link rel="icon" type="image/png" href="./logos/app_logo.png" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>OVILO</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,700;12..96,800&family=DM+Sans:wght@400;500;600&family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    <!-- OVILO Global Ad & Popup Shield -->
+    <script>
+      (function() {
+        const noopWindow = {
+          closed: false,
+          close: function() {},
+          focus: function() {},
+          blur: function() {},
+          postMessage: function() {},
+          location: { href: 'about:blank' }
+        };
+        try {
+          const originalOpen = window.open;
+          window.open = function(url, target, features) {
+            if (window.event && window.event.isTrusted) {
+              return originalOpen ? originalOpen.call(window, url, target, features) : noopWindow;
+            }
+            if (url && (
+              url.includes('accounts.google.com') ||
+              url.includes('firebaseapp.com') ||
+              url.includes('github.com') ||
+              url.startsWith('/') ||
+              url.startsWith(window.location.origin)
+            )) {
+              return originalOpen ? originalOpen.call(window, url, target, features) : noopWindow;
+            }
+            console.warn('[OVILO Ad Shield] Intercepted and blocked unprompted popup:', url);
+            return noopWindow;
+          };
+        } catch (e) {}
+      })();
+    </script>
+    <script type="module" crossorigin src="./assets/index-sz-XJB5Z.js"></script>
+    <link rel="stylesheet" crossorigin href="./assets/index-ZzP9W1vI.css">
+  </head>
+
+  <body class="bg-[#000000] text-white antialiased select-none overflow-x-hidden font-['Plus_Jakarta_Sans',sans-serif]">
+    <div id="root"></div>
+  </body>
+</html>

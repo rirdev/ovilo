@@ -9,7 +9,9 @@ lerna-debug.log*
 
 # Node dependencies & builds
 node_modules/
+**/node_modules/
 dist/
+dist_site/
 dist-ssr/
 *.local
 
@@ -62,3 +64,4 @@ Windows files/
 *.njsproj
 *.sln
 *.sw?
+web_version/node_modules

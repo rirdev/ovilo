@@ -1,9 +1,10 @@
 import React, { useState, useEffect } from 'react';
 import { MediaItem, FavoriteItem, WatchHistoryItem } from '../types';
 import { Play, Star, Loader2 } from 'lucide-react';
-import { getPosterUrl, getBackdropUrl, FALLBACK_TRENDING, searchMulti } from '../services/api';
+import { getBackdropUrl, FALLBACK_TRENDING, searchMulti } from '../services/api';
 import { MovieFavoritesView } from './MovieFavoritesView';
 import { MediaCard } from './MediaCard';
+import { TopTenRow } from './TopTenRow';
 
 interface ShowcaseMoviesViewProps {
   trendingItems?: MediaItem[];
@@ -445,85 +446,7 @@ export const ShowcaseMoviesView: React.FC<ShowcaseMoviesViewProps> = ({
       )}
 
       {/* 4. Top 10 This Week with Outline Numbers */}
-      <div style={{ margin: '18px 0 10px' }}>
-        <div className="kino-sec">
-          <h2>Top 10 this week</h2>
-          <span>TMDB Official</span>
-        </div>
-        <div className="kino-row" style={{ gap: '16px', overflowX: 'auto', paddingBottom: '12px' }}>
-          {top10.map((m, i) => {
-            const posterUrl = getPosterUrl(m.poster_path, 'w500');
-
-            return (
-              <div
-                key={m.id || m.title || i}
-                onClick={() => onSelect(m)}
-                className="t10 cursor-pointer flex-shrink-0"
-                style={{
-                  display: 'flex',
-                  alignItems: 'flex-end',
-                  flex: 'none',
-                }}
-              >
-                {/* 1. Large Outline Number on the Left */}
-                <span
-                  className="num select-none"
-                  style={{
-                    font: '800 114px/0.78 var(--display, sans-serif)',
-                    letterSpacing: '-0.06em',
-                    color: 'var(--bg, #0a0a0b)',
-                    WebkitTextStroke: '2px var(--on-var, #666)',
-                    marginRight: '-22px',
-                    position: 'relative',
-                    zIndex: 1,
-                    pointerEvents: 'none',
-                  }}
-                >
-                  {i + 1}
-                </span>
-
-                {/* 2. Poster with Kino Hover (.pv) */}
-                <div
-                  className="poster pv relative overflow-hidden rounded-2xl flex-shrink-0"
-                  style={{
-                    width: '136px',
-                    height: '196px',
-                    position: 'relative',
-                    zIndex: 2,
-                  }}
-                >
-                  <img
-                    src={posterUrl}
-                    alt={m.title || m.name}
-                    className="w-full h-full object-cover"
-                  />
-                  <div className="ov" />
-                  <div
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      onPlay(m);
-                    }}
-                    className="pp cursor-pointer"
-                    title="Watch Now"
-                  >
-                    <svg viewBox="0 0 24 24" style={{ width: '22px', height: '22px', fill: 'var(--ink)', stroke: 'none', marginLeft: '2px' }}>
-                      <path d="M8 5v14l11-7z" />
-                    </svg>
-                  </div>
-                  <div className="tx absolute bottom-2 left-2 right-2 text-left z-10 pointer-events-none">
-                    <div className="text-[12px] font-bold text-white truncate drop-shadow-md">
-                      {m.title || m.name}
-                    </div>
-                    <div className="text-[10px] text-[#ffd24d] font-bold flex items-center gap-1 drop-shadow-md">
-                      ★ {m.vote_average ? m.vote_average.toFixed(1) : '8.0'}
-                    </div>
-                  </div>
-                </div>
-              </div>
-            );
-          })}
-        </div>
-      </div>
+      <TopTenRow items={top10} onSelect={onSelect} onPlay={onPlay} />
 
       {/* 5. Trending Movies & Sagas */}
       <div style={{ margin: '18px 0 10px' }}>

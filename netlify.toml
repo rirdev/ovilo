@@ -1,0 +1,24 @@
+[build]
+  command = "cd web_version && npm run build && cd .. && rm -rf dist_site && cp -r website dist_site && cp -r web_version/dist dist_site/app"
+  publish = "dist_site"
+
+[[redirects]]
+  from = "/app/*"
+  to = "/app/index.html"
+  status = 200
+
+[[redirects]]
+  from = "/*"
+  to = "/index.html"
+  status = 200
+
+[[headers]]
+  for = "/*"
+  [headers.values]
+    X-Content-Type-Options = "nosniff"
+    Referrer-Policy = "strict-origin-when-cross-origin"
+
+[[headers]]
+  for = "/downloads/*"
+  [headers.values]
+    Cache-Control = "public, max-age=3600"

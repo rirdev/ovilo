@@ -96,7 +96,7 @@ export const TopTenRow: React.FC<TopTenRowProps> = ({ items, onSelect, onPlay })
               </span>
 
               {/* Poster Card overlapping number */}
-              <div className="relative z-10 w-[160px] h-[230px] rounded-[22px] overflow-hidden bg-[#18181a] border border-[#34343a] shadow-2xl transition-all duration-300 group-hover:-translate-y-1 group-hover:scale-[1.02]">
+              <div className="relative z-10 w-[150px] min-w-[150px] max-w-[150px] h-[220px] flex-shrink-0 rounded-[22px] overflow-hidden bg-[#18181a] border border-[#34343a] shadow-2xl transition-all duration-300 group-hover:-translate-y-1 group-hover:scale-[1.02]">
                 <img
                   src={getPosterUrl(item.poster_path, 'w500')}
                   alt={title}
@@ -104,20 +104,23 @@ export const TopTenRow: React.FC<TopTenRowProps> = ({ items, onSelect, onPlay })
                   onError={(e) => {
                     e.currentTarget.src = FALLBACK_POSTER_SVG;
                   }}
-                  className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
+                  className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105 block"
                 />
 
-                <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/25 to-transparent pointer-events-none" />
+                <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/30 to-transparent pointer-events-none" />
 
-                {/* Title overlay at bottom */}
-                <div className="absolute bottom-3.5 left-3.5 right-3.5 pointer-events-none">
-                  <h3 className="text-[15px] font-extrabold text-[#f2efe9] leading-tight line-clamp-2 font-['Bricolage_Grotesque',sans-serif]">
+                {/* Title & Star Rating overlay at bottom */}
+                <div className="absolute bottom-3 left-3 right-3 pointer-events-none z-10">
+                  <h3 className="text-[13px] font-extrabold text-[#f2efe9] leading-tight line-clamp-2 font-['Bricolage_Grotesque',sans-serif] drop-shadow-md">
                     {title}
                   </h3>
+                  <div className="text-[10px] text-[#ffd24d] font-bold flex items-center gap-1 mt-1 drop-shadow-md">
+                    ★ {item.vote_average ? item.vote_average.toFixed(1) : '8.0'}
+                  </div>
                 </div>
 
                 {/* Hover Play Button */}
-                <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity duration-300 bg-black/40 backdrop-blur-[2px]">
+                <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity duration-300 bg-black/40 backdrop-blur-[2px] z-20">
                   <button
                     onClick={(e) => {
                       e.stopPropagation();

@@ -1580,12 +1580,29 @@ body.theme-cobalt {
   pointer-events: none !important;
 }
 .t10 .poster, .kino-t10 .poster {
-  width: 128px !important;
-  height: 176px !important;
+  width: 140px !important;
+  min-width: 140px !important;
+  max-width: 140px !important;
+  height: 200px !important;
   border-radius: 18px !important;
   flex: none !important;
+  flex-shrink: 0 !important;
   position: relative !important;
   z-index: 2 !important;
+  display: block !important;
+}
+.t10 .poster img, .kino-t10 .poster img {
+  width: 100% !important;
+  height: 100% !important;
+  object-fit: cover !important;
+  display: block !important;
+}
+.t10 .poster .tx, .kino-t10 .poster .tx {
+  position: absolute !important;
+  bottom: 8px !important;
+  left: 8px !important;
+  right: 8px !important;
+  z-index: 10 !important;
 }
 
 /* Dashboard Jump Back In */
