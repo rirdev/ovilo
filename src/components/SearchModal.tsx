@@ -6,7 +6,7 @@ import { searchMulti, searchOnlineMusic } from '../services/api';
 import { MediaCard } from './MediaCard';
 import { useTheme } from '../context/ThemeContext';
 import { useAudio } from '../context/AudioContext';
-import { getLocalMusicFavorites, saveLocalMusicFavorites } from '../services/firebaseSync';
+import { getLocalMusicFavorites, saveLocalMusicFavorites, getLocalProfile, syncToCloud } from '../services/firebaseSync';
 import { startDownload } from '../services/downloadManager';
 
 interface SearchModalProps {
@@ -60,6 +60,14 @@ export const SearchModal: React.FC<SearchModalProps> = ({
   }, [isOpen, activeTab]);
 
   useEffect(() => {
+    const handleFavsUpdate = () => {
+      setMusicFavorites(getLocalMusicFavorites());
+    };
+    window.addEventListener('ovilo_music_favorites_updated', handleFavsUpdate);
+    return () => window.removeEventListener('ovilo_music_favorites_updated', handleFavsUpdate);
+  }, []);
+
+  useEffect(() => {
     if (!query.trim()) {
       setResults([]);
       setMusicResults([]);
@@ -110,18 +118,46 @@ export const SearchModal: React.FC<SearchModalProps> = ({
 
   if (!isOpen) return null;
 
-  const isMusicFav = (trackId: string) => musicFavorites.some((f) => f.id === trackId);
+  const isMusicFav = (trackId?: string, trackTitle?: string) => {
+    const cleanId = (trackId || '').trim();
+    const cleanT = (trackTitle || '').trim().toLowerCase();
+    return musicFavorites.some((f) => {
+      if (!f) return false;
+      const fId = (f.id || '').trim();
+      if (cleanId && fId && fId === cleanId) return true;
+      const fTitle = (f.title || (f as any).name || '').trim().toLowerCase();
+      return Boolean(cleanT && fTitle && fTitle === cleanT);
+    });
+  };
 
   const handleToggleMusicFavorite = (e: React.MouseEvent, track: MusicTrack) => {
     e.stopPropagation();
+    if (!track || (!track.title && !track.id)) return;
+    const cleanT = (track.title || '').trim().toLowerCase();
+    const cleanId = (track.id || '').trim();
+
+    const isMatch = (f: MusicTrack) => {
+      if (!f) return false;
+      const fId = (f.id || '').trim();
+      if (cleanId && fId && fId === cleanId) return true;
+      const fTitle = (f.title || (f as any).name || '').trim().toLowerCase();
+      return Boolean(cleanT && fTitle && fTitle === cleanT);
+    };
+
+    const isFav = musicFavorites.some(isMatch);
     let updated: MusicTrack[];
-    if (isMusicFav(track.id)) {
-      updated = musicFavorites.filter((f) => f.id !== track.id);
+    if (isFav) {
+      updated = musicFavorites.filter((f) => !isMatch(f));
     } else {
-      updated = [track, ...musicFavorites];
+      updated = [track, ...musicFavorites.filter((f) => !isMatch(f))];
     }
     setMusicFavorites(updated);
     saveLocalMusicFavorites(updated);
+    const p = getLocalProfile();
+    if (p && !p.isGuest && (p.username || p.uid)) {
+      syncToCloud(p.username || p.uid || '', { musicFavorites: updated });
+    }
+    window.dispatchEvent(new CustomEvent('ovilo_music_favorites_updated'));
   };
 
   const handleMusicClick = (track: MusicTrack) => {
@@ -326,7 +362,7 @@ export const SearchModal: React.FC<SearchModalProps> = ({
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-2.5">
                     {musicResults.map((track) => {
                       const isThisPlaying = currentTrack?.id === track.id && isPlaying;
-                      const isFav = isMusicFav(track.id);
+                      const isFav = isMusicFav(track.id, track.title);
                       const artwork = track.artwork_url && track.artwork_url.startsWith('http')
                         ? track.artwork_url
                         : 'https://images.unsplash.com/photo-1511671782779-c97d3d27a1d4?auto=format&fit=crop&w=300&q=80';

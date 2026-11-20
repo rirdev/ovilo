@@ -1,7 +1,7 @@
 import React, { useState, useRef, useEffect, useMemo } from 'react';
 import { Play, Activity, Film, Music, Tv, Sparkles } from 'lucide-react';
 import { WatchHistoryItem, FavoriteItem, MediaItem } from '../types';
-import { UserProfile } from '../services/firebaseSync';
+import { UserProfile, getLocalMusicFavorites } from '../services/firebaseSync';
 import { getPosterUrl, getBackdropUrl } from '../services/api';
 
 interface ShowcaseDashboardViewProps {
@@ -27,8 +27,7 @@ export const ShowcaseDashboardView: React.FC<ShowcaseDashboardViewProps> = ({
   const [favFilter, setFavFilter] = useState<'all' | 'movies' | 'tv'>('all');
   const [musicFavCount, setMusicFavCount] = useState<number>(() => {
     try {
-      const raw = localStorage.getItem('ovilo_music_favorites');
-      return raw ? JSON.parse(raw).length : 0;
+      return getLocalMusicFavorites().length;
     } catch {
       return 0;
     }
@@ -40,8 +39,7 @@ export const ShowcaseDashboardView: React.FC<ShowcaseDashboardViewProps> = ({
   useEffect(() => {
     const syncMusicFavs = () => {
       try {
-        const raw = localStorage.getItem('ovilo_music_favorites');
-        setMusicFavCount(raw ? JSON.parse(raw).length : 0);
+        setMusicFavCount(getLocalMusicFavorites().length);
       } catch {
         setMusicFavCount(0);
       }

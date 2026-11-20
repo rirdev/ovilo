@@ -882,25 +882,62 @@ export const ShowcaseMusicView: React.FC<ShowcaseMusicViewProps> = ({
     setActiveChip('Now Playing');
   };
 
-  const isFavorited = (title: string, id?: string) =>
-    favorites.some((f) => (id && f.id === id) || f.title.toLowerCase() === title.toLowerCase());
+  const isFavorited = (title?: string, id?: string) => {
+    if (!title && !id) return false;
+    const cleanT = (title || '').trim().toLowerCase();
+    const cleanId = (id || '').trim();
+    return favorites.some((f) => {
+      if (!f) return false;
+      const fId = (f.id || '').trim();
+      if (cleanId && fId && fId === cleanId) return true;
+      const fTitle = (f.title || (f as any).name || '').trim().toLowerCase();
+      return Boolean(cleanT && fTitle && fTitle === cleanT);
+    });
+  };
 
-  const toggleFavoriteTrack = (t: { id?: string; title: string; artist: string; duration?: number; cover?: string; artwork_url?: string; stream_url?: string }) => {
+  const toggleFavoriteTrack = (t: {
+    id?: string;
+    title: string;
+    artist?: string;
+    duration?: number;
+    cover?: string;
+    artwork_url?: string;
+    stream_url?: string;
+    is_local?: boolean;
+    has_lyrics?: boolean;
+  }) => {
+    if (!t || (!t.title && !t.id)) return;
+    const cleanT = (t.title || '').trim().toLowerCase();
+    const cleanId = (t.id || '').trim();
+
+    const isMatch = (f: MusicTrack) => {
+      if (!f) return false;
+      const fId = (f.id || '').trim();
+      if (cleanId && fId && fId === cleanId) return true;
+      const fTitle = (f.title || (f as any).name || '').trim().toLowerCase();
+      return Boolean(cleanT && fTitle && fTitle === cleanT);
+    };
+
+    const isAlreadyFav = favorites.some(isMatch);
     let next: MusicTrack[];
-    if (isFavorited(t.title, t.id)) {
-      next = favorites.filter((f) => (t.id ? f.id !== t.id : true) && f.title.toLowerCase() !== t.title.toLowerCase());
+
+    if (isAlreadyFav) {
+      next = favorites.filter((f) => !isMatch(f));
     } else {
       const newTrack: MusicTrack = {
-        id: t.id || `fav_${t.title.replace(/\s+/g, '_')}`,
-        title: t.title,
-        artist: t.artist,
+        id: t.id || `fav_${(t.title || 'track').replace(/\s+/g, '_')}`,
+        title: (t.title || 'Unknown Track').trim(),
+        artist: (t.artist || 'Unknown Artist').trim(),
         duration: t.duration || 210,
         stream_url: t.stream_url || '',
-        artwork_url: t.cover || t.artwork_url || 'https://images.unsplash.com/photo-1514525253161-7a46d19cd819?q=80&w=300&auto=format&fit=crop',
-        is_local: false,
-        has_lyrics: false,
+        artwork_url:
+          t.cover ||
+          t.artwork_url ||
+          'https://images.unsplash.com/photo-1514525253161-7a46d19cd819?q=80&w=300&auto=format&fit=crop',
+        is_local: Boolean(t.is_local),
+        has_lyrics: Boolean(t.has_lyrics),
       };
-      next = [newTrack, ...favorites];
+      next = [newTrack, ...favorites.filter((f) => !isMatch(f))];
     }
     setFavorites(next);
     saveLocalMusicFavorites(next);
@@ -1295,14 +1332,24 @@ export const ShowcaseMusicView: React.FC<ShowcaseMusicViewProps> = ({
               <button
                 type="button"
                 onClick={(e) => {
-                  toggleFavoriteTrack({ title: currentTitle, artist: currentArtist, cover: currentCover });
+                  toggleFavoriteTrack({
+                    id: currentTrack?.id,
+                    title: currentTitle,
+                    artist: currentArtist,
+                    cover: currentCover,
+                    artwork_url: currentCover,
+                    duration: currentTrack?.duration,
+                    stream_url: currentTrack?.stream_url,
+                    is_local: currentTrack?.is_local,
+                    has_lyrics: currentTrack?.has_lyrics,
+                  });
                   triggerLikeBurst(e.currentTarget);
                 }}
-                className={`tool-pill cursor-pointer ${isFavorited(currentTitle) ? 'on !bg-rose-500/20 !border-rose-500/40 !text-rose-400' : ''}`}
-                title={isFavorited(currentTitle) ? 'Liked' : 'Like song'}
+                className={`tool-pill cursor-pointer ${isFavorited(currentTitle, currentTrack?.id) ? 'on !bg-rose-500/20 !border-rose-500/40 !text-rose-400' : ''}`}
+                title={isFavorited(currentTitle, currentTrack?.id) ? 'Liked' : 'Like song'}
               >
-                <Heart className={`w-4 h-4 ${isFavorited(currentTitle) ? 'fill-current text-rose-400' : 'text-neutral-300'}`} />
-                <span>{isFavorited(currentTitle) ? 'Liked' : 'Like'}</span>
+                <Heart className={`w-4 h-4 ${isFavorited(currentTitle, currentTrack?.id) ? 'fill-current text-rose-400' : 'text-neutral-300'}`} />
+                <span>{isFavorited(currentTitle, currentTrack?.id) ? 'Liked' : 'Like'}</span>
               </button>
 
               <KinoDownloadButton
@@ -1931,7 +1978,7 @@ export const ShowcaseMusicView: React.FC<ShowcaseMusicViewProps> = ({
             <div className="panel" style={{ overflowY: 'auto' }}>
               {tracksToDisplay.map((t, i) => {
                 const isCurrent = currentTrack?.title === t.title;
-                const isFav = isFavorited(t.title);
+                const isFav = isFavorited(t.title, t.id);
 
                 return (
                   <div
@@ -1965,7 +2012,17 @@ export const ShowcaseMusicView: React.FC<ShowcaseMusicViewProps> = ({
                     <button
                       onClick={(e) => {
                         e.stopPropagation();
-                        toggleFavoriteTrack(t);
+                        toggleFavoriteTrack({
+                          id: t.id,
+                          title: t.title,
+                          artist: t.artist,
+                          duration: t.duration,
+                          cover: t.cover,
+                          artwork_url: t.cover,
+                          stream_url: t.stream_url,
+                          is_local: t.is_local,
+                          has_lyrics: t.has_lyrics,
+                        });
                       }}
                       className="p-1 border-0 bg-transparent cursor-pointer"
                       title={isFav ? 'Remove from Favorites' : 'Add to Favorites'}

@@ -72,27 +72,49 @@ export const MusicPlayerDock: React.FC = () => {
 
   const title = currentTrack?.title || 'Slow Harbour';
   const artist = currentTrack?.artist || 'Mira Okafor';
+  const trackId = currentTrack?.id;
   const effectiveDuration = duration > 0 ? duration : (currentTrack?.duration || 0);
   const effectiveTime = currentTime;
   const progressPercent = effectiveDuration > 0 ? Math.min(100, Math.max(0, (effectiveTime / effectiveDuration) * 100)) : 0;
 
-  const isFavorited = favorites.some((f) => f.title === title);
+  const isFavorited = favorites.some((f) => {
+    if (!f) return false;
+    const fId = (f.id || '').trim();
+    if (trackId && fId && fId === trackId) return true;
+    const fTitle = (f.title || (f as any).name || '').trim().toLowerCase();
+    const curTitle = (title || '').trim().toLowerCase();
+    return Boolean(curTitle && fTitle && fTitle === curTitle);
+  });
 
   const toggleFavorite = () => {
+    const cleanT = (title || '').trim().toLowerCase();
+    const cleanId = (trackId || '').trim();
+
+    const isMatch = (f: MusicTrack) => {
+      if (!f) return false;
+      const fId = (f.id || '').trim();
+      if (cleanId && fId && fId === cleanId) return true;
+      const fTitle = (f.title || (f as any).name || '').trim().toLowerCase();
+      return Boolean(cleanT && fTitle && fTitle === cleanT);
+    };
+
     let next: MusicTrack[];
     if (isFavorited) {
-      next = favorites.filter((f) => f.title !== title);
+      next = favorites.filter((f) => !isMatch(f));
     } else {
       const newT: MusicTrack = {
-        id: `fav_${title.replace(/\s+/g, '_')}`,
-        title,
-        artist,
-        duration: effectiveDuration,
-        stream_url: '',
-        is_local: false,
-        has_lyrics: false,
+        id: trackId || `fav_${title.replace(/\s+/g, '_')}`,
+        title: title.trim(),
+        artist: artist.trim(),
+        duration: effectiveDuration || 210,
+        stream_url: currentTrack?.stream_url || '',
+        artwork_url:
+          currentTrack?.artwork_url ||
+          'https://images.unsplash.com/photo-1514525253161-7a46d19cd819?q=80&w=300&auto=format&fit=crop',
+        is_local: Boolean(currentTrack?.is_local),
+        has_lyrics: Boolean(currentTrack?.has_lyrics),
       };
-      next = [newT, ...favorites];
+      next = [newT, ...favorites.filter((f) => !isMatch(f))];
     }
     setFavorites(next);
     saveLocalMusicFavorites(next);

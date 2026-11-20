@@ -748,7 +748,44 @@ export const getLocalMusicFavorites = (): MusicTrack[] => {
   try {
     const raw = localStorage.getItem(MUSIC_FAVORITES_KEY);
     if (!raw) return [];
-    return JSON.parse(raw);
+    const parsed = JSON.parse(raw);
+    if (!Array.isArray(parsed)) return [];
+    return parsed
+      .map((item) => {
+        if (!item) return null;
+        let obj = item;
+        if (typeof item === 'string') {
+          try {
+            obj = JSON.parse(item);
+          } catch {
+            return null;
+          }
+        }
+        if (typeof obj !== 'object' || obj === null) return null;
+        const title = String(obj.title || obj.name || '').trim();
+        if (!title) return null;
+        const artist = String(obj.artist || obj.artistName || 'Unknown Artist').trim();
+        const id = String(obj.id || obj.trackId || `fav_${title.replace(/\s+/g, '_')}`);
+        const stream_url = String(obj.stream_url || obj.streamUrl || '');
+        const artwork_url = String(
+          obj.artwork_url ||
+            obj.artworkUrl ||
+            obj.cover ||
+            obj.thumbnail ||
+            'https://images.unsplash.com/photo-1514525253161-7a46d19cd819?q=80&w=300&auto=format&fit=crop'
+        );
+        const duration = Math.round(Number(obj.duration) || 210);
+        return {
+          ...obj,
+          id,
+          title,
+          artist,
+          stream_url,
+          artwork_url,
+          duration,
+        } as MusicTrack;
+      })
+      .filter((t): t is MusicTrack => Boolean(t && t.title));
   } catch {
     return [];
   }
@@ -759,8 +796,45 @@ export const getLocalMusicFavorites = (): MusicTrack[] => {
  */
 export const saveLocalMusicFavorites = (tracks: MusicTrack[]): void => {
   try {
-    localStorage.setItem(MUSIC_FAVORITES_KEY, JSON.stringify(tracks));
-    window.dispatchEvent(new Event('ovilo_music_favorites_updated'));
+    if (!Array.isArray(tracks)) return;
+    const sanitized: MusicTrack[] = tracks
+      .map((item) => {
+        if (!item) return null;
+        let obj = item;
+        if (typeof item === 'string') {
+          try {
+            obj = JSON.parse(item);
+          } catch {
+            return null;
+          }
+        }
+        if (typeof obj !== 'object' || obj === null) return null;
+        const title = String(obj.title || (obj as any).name || '').trim();
+        if (!title) return null;
+        const artist = String(obj.artist || (obj as any).artistName || 'Unknown Artist').trim();
+        const id = String(obj.id || (obj as any).trackId || `fav_${title.replace(/\s+/g, '_')}`);
+        const stream_url = String(obj.stream_url || (obj as any).streamUrl || '');
+        const artwork_url = String(
+          obj.artwork_url ||
+            (obj as any).artworkUrl ||
+            (obj as any).cover ||
+            'https://images.unsplash.com/photo-1514525253161-7a46d19cd819?q=80&w=300&auto=format&fit=crop'
+        );
+        const duration = Math.round(Number(obj.duration) || 210);
+        return {
+          ...obj,
+          id,
+          title,
+          artist,
+          stream_url,
+          artwork_url,
+          duration,
+        } as MusicTrack;
+      })
+      .filter((t): t is MusicTrack => Boolean(t && t.title));
+
+    localStorage.setItem(MUSIC_FAVORITES_KEY, JSON.stringify(sanitized));
+    window.dispatchEvent(new CustomEvent('ovilo_music_favorites_updated'));
   } catch (err) {
     console.error('Failed to save music favorites locally:', err);
   }
