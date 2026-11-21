@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>Ovilo — Watch, listen &amp; download in one app</title>
-<meta name="description" content="Ovilo puts your streaming, music library, synchronized lyrics and high-speed downloads in one player. Developed by RirTech. Free for Windows, Linux and Android.">
+<meta name="description" content="Ovilo puts your streaming, music library, synchronized lyrics and high-speed downloads in one player. Developed by rirdesign. Free for Windows, Linux and Android.">
 <meta property="og:title" content="Ovilo — Watch, listen &amp; download in one app">
 <meta property="og:description" content="Universal high-fidelity media player & downloader for Movies, TV Series, Music with synced lyrics, and yt-dlp/FTP downloads.">
 <meta property="og:url" content="https://ovilo.netlify.app/">
@@ -15,9 +15,9 @@
 <style>
 :root{color-scheme:dark;--bg:#0f0f10;--sf:#18181a;--hi:#222225;--ln:#34343a;--on:#f2efe9;--vr:#a9a7a2;--co:#ff7a64;--ye:#ffd24d;--pe:#8f9cff;--mi:#a8e6c3;--ink:#141414;--d:"Bricolage Grotesque","Arial Black",sans-serif;--b:"DM Sans",system-ui,sans-serif;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
 @media (prefers-color-scheme:light){:root:not([data-theme="dark"]){color-scheme:light;--bg:#faf8f3;--sf:#fff;--hi:#f0ece3;--ln:#ded9cc;--on:#18181a;--vr:#5d5a53}}
-html{scroll-behavior:smooth;scroll-padding-top:calc(90px + env(safe-area-inset-top,0px));overflow-x:hidden;max-width:100vw}
+html{scroll-behavior:smooth;scroll-padding-top:calc(90px + env(safe-area-inset-top,0px))}
 *{box-sizing:border-box;margin:0}
-body{background:var(--bg);color:var(--on);font:400 17px/1.55 var(--b);overflow-x:hidden;max-width:100vw;width:100%;position:relative}
+body{background:var(--bg);color:var(--on);font:400 17px/1.55 var(--b);overflow-x:hidden}
 body::before{content:"";position:fixed;inset:0 0 auto;height:env(safe-area-inset-top,0px);background:var(--bg);z-index:30}
 h1,h2,h3,.d{font-family:var(--d);font-weight:800;letter-spacing:-.03em;text-transform:uppercase;line-height:.92}
 a{color:inherit;text-decoration:none}
@@ -65,7 +65,7 @@ header.nav{position:sticky;top:env(safe-area-inset-top,0px);z-index:35;backgroun
 
 
 /* marquee */
-.mq{overflow:hidden;max-width:100vw;width:100%;contain:paint;border-block:1px solid var(--ln);padding:18px 0;margin:30px 0 90px}
+.mq{overflow:hidden;border-block:1px solid var(--ln);padding:18px 0;margin:30px 0 90px}
 .mq div{display:flex;gap:14px;width:max-content;animation:mq 28s linear infinite}
 .mq span{border:1px solid var(--ln);border-radius:99px;padding:10px 24px;font:800 22px var(--d);text-transform:uppercase;color:var(--vr);white-space:nowrap}
 @keyframes mq{to{transform:translateX(-50%)}}
@@ -104,7 +104,7 @@ header.nav{position:sticky;top:env(safe-area-inset-top,0px);z-index:35;backgroun
 
 /* download cards */
 .dl{display:grid;grid-template-columns:repeat(4,1fr);gap:16px}
-.dc{border-radius:32px;padding:28px 22px;min-height:390px;display:flex;flex-direction:column;justify-content:space-between;color:var(--ink);position:relative;overflow:hidden;contain:paint;transition:transform .35s}
+.dc{border-radius:32px;padding:28px 22px;min-height:390px;display:flex;flex-direction:column;justify-content:space-between;color:var(--ink);position:relative;overflow:hidden;transition:transform .35s}
 .dc:hover{transform:translateY(-8px) rotate(-.5deg)}
 .dc::after{content:"";position:absolute;right:-50px;top:-50px;width:200px;height:200px;border-radius:50%;background:var(--ink);opacity:.1;transition:transform .6s}.dc:hover::after{transform:scale(1.4)}
 .dc h3{font-size:clamp(30px,2.6vw,44px);margin-top:6px;letter-spacing:-0.03em}
@@ -120,12 +120,12 @@ header.nav{position:sticky;top:env(safe-area-inset-top,0px);z-index:35;backgroun
 }
 
 /* support & Netlify form */
-.sp{display:grid;grid-template-columns:1fr 1fr;gap:50px;align-items:start;max-width:100%;overflow:hidden}
-.ct{display:grid;gap:14px;max-width:100%}
-.ct a{display:flex;align-items:center;justify-content:space-between;border-radius:26px;padding:18px 22px;color:var(--ink);transition:transform .3s;max-width:100%;overflow:hidden;gap:12px}
-.ct a:hover{transform:translateX(-8px)}.ct b{font:800 clamp(13px,3.8vw,22px) var(--d);text-transform:uppercase;display:block;letter-spacing:-.02em;word-break:break-word;overflow-wrap:anywhere}.ct small{font-weight:500;opacity:.85;word-break:break-word;overflow-wrap:anywhere}
-.ct span{width:44px;height:44px;border-radius:50%;background:var(--ink);color:#f2efe9;display:grid;place-items:center;font-size:18px;flex-shrink:0}
-.contact-form{background:var(--sf);border:1px solid var(--ln);border-radius:32px;padding:32px;display:flex;flex-direction:column;gap:16px;max-width:100%;box-sizing:border-box}
+.sp{display:grid;grid-template-columns:1fr 1fr;gap:50px;align-items:start}
+.ct{display:grid;gap:14px}
+.ct a{display:flex;align-items:center;justify-content:space-between;border-radius:26px;padding:22px 26px;color:var(--ink);transition:transform .3s}
+.ct a:hover{transform:translateX(-8px)}.ct b{font:800 22px var(--d);text-transform:uppercase;display:block;letter-spacing:-.02em}.ct small{font-weight:500;opacity:.85}
+.ct span{width:44px;height:44px;border-radius:50%;background:var(--ink);color:#f2efe9;display:grid;place-items:center;font-size:18px}
+.contact-form{background:var(--sf);border:1px solid var(--ln);border-radius:32px;padding:32px;display:flex;flex-direction:column;gap:16px}
 .f-group{display:flex;flex-direction:column;gap:6px}
 .f-group label{font-size:13px;font-weight:600;color:var(--vr);letter-spacing:0.02em}
 .f-group input,.f-group textarea{background:var(--hi);border:1px solid var(--ln);border-radius:14px;padding:12px 16px;color:var(--on);font:inherit;font-size:15px;transition:border-color .2s,box-shadow .2s;outline:none}
@@ -135,7 +135,7 @@ header.nav{position:sticky;top:env(safe-area-inset-top,0px);z-index:35;backgroun
 /* general elements */
 details{background:var(--sf);border:1px solid var(--ln);border-radius:20px;padding:16px 22px;margin-bottom:10px;max-width:780px;transition:border-color .3s}
 details[open]{border-color:var(--ye)}summary{cursor:pointer;font-weight:600}details p{color:var(--vr);margin-top:8px;font-size:15px}
-.big{font:800 clamp(48px,18vw,360px)/.8 var(--d);letter-spacing:-.05em;text-align:center;color:transparent;-webkit-text-stroke:2px var(--ln);margin-top:70px;user-select:none;max-width:100%;overflow:hidden}
+.big{font:800 clamp(100px,26vw,360px)/.8 var(--d);letter-spacing:-.05em;text-align:center;color:transparent;-webkit-text-stroke:2px var(--ln);margin-top:70px;user-select:none}
 .big.in{background:linear-gradient(90deg,var(--co),var(--ye),var(--pe),var(--mi));-webkit-background-clip:text;background-clip:text;-webkit-text-stroke:0;transition:all 1.2s}
 footer{padding:30px 0 40px;color:var(--vr);font-size:14px;border-top:1px solid var(--ln);margin-top:40px}
 footer .w{display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:14px;max-width:100%;padding:0 36px}
@@ -195,57 +195,26 @@ footer .w{display:flex;justify-content:space-between;align-items:center;flex-wra
 }
 @media (max-width:580px){
   .w{padding:0 16px}
-  .nav-container{padding:0 14px;height:56px;gap:8px}
-  .logo{font-size:19px;gap:7px}
+  .nav-container{padding:0 16px;height:56px}
+  .logo{font-size:20px;gap:8px}
   .logo img{width:30px;height:30px}
-  .nav-right{gap:6px}
-  .nav-right .btn{height:36px;padding:0 12px;font-size:12px}
-  .hero h1{font-size:clamp(34px,10vw,42px);line-height:.96}
-  .hero p.sub{font-size:14.5px;margin-bottom:20px}
+  .hero h1{font-size:38px;line-height:.96}
+  .hero p.sub{font-size:15px}
   .hero .btn{width:100%;justify-content:center}
-  .tiles{height:400px;gap:10px}
+  .tiles{height:440px;gap:10px}
   .col:nth-child(3){display:none} /* Clean, centered 2-column mobile layout with 0 overflow */
   .col{width:calc(50% - 6px);max-width:145px}
-  .t{height:195px}
+  .t{height:210px}
   .dl{gap:14px}
-  .dc::after{right:0;top:0;width:120px;height:120px}
-  .cta{padding:44px 18px;border-radius:28px}
-  .cta h2{font-size:clamp(38px,11vw,48px)}
-  .pn,.pn.t0{padding:22px 16px;min-height:300px;border-radius:24px}
-  .pn .mp{width:clamp(52px,17vw,78px)!important;height:clamp(120px,30vw,170px)!important;font-size:13px!important}
-  .pn .disc{width:min(160px,46vw)!important;height:min(160px,46vw)!important}
-  .pn .disc::before{width:50px!important;height:50px!important;box-shadow:0 0 0 12px #2b2b2f!important}
-  .five{gap:8px;margin-top:22px}
-  .five span{font-size:12px;padding:6px 12px;white-space:normal}
-  .five b{font-size:18px;padding:6px 16px}
-  .stm{font-size:clamp(24px,7.5vw,38px)!important;line-height:1.06!important}
-  .steps{padding-left:52px}
-  .steps::before,.steps i{left:16px}
-  .st::before{left:-52px;width:34px;height:34px;font-size:14px}
-  .st h3{font-size:22px}
-  .st p{font-size:14px}
-  .contact-form{padding:20px 16px;border-radius:24px}
-  .ct a{padding:14px 16px!important;border-radius:18px!important;gap:10px!important}
-  .ct span{width:36px!important;height:36px!important;font-size:15px!important}
-  .ct b{font-size:clamp(12px,3.4vw,15px)!important}
-  .sp{gap:24px!important}
-  .gh-card .btn{width:100%;justify-content:center}
+  .sk{padding:24px 16px;border-radius:28px}
+  .vz .mp{width:clamp(65px,22vw,85px);height:clamp(130px,40vw,170px);font-size:14px}
+  .cta{padding:48px 18px;border-radius:32px}
+  .cta h2{font-size:44px}
+  .ct a{padding:14px 16px;border-radius:18px;gap:10px}
+  .ct span{width:36px;height:36px;font-size:15px;flex-shrink:0}
+  .ct b{font-size:clamp(12px,3.5vw,16px);word-break:break-all}
+  .sp{gap:24px}
   footer .w{padding:0 16px;flex-direction:column;align-items:flex-start;gap:14px}
-}
-@media (max-width:390px){
-  .w{padding:0 12px}
-  .nav-container{padding:0 10px;height:52px;gap:6px}
-  .logo{font-size:17px;gap:6px}
-  .logo img{width:26px;height:26px}
-  .nav-right{gap:5px}
-  .nav-right .btn{height:32px;padding:0 9px;font-size:11px}
-  .hero h1{font-size:32px}
-  .hero p.sub{font-size:13.5px}
-  .tiles{height:340px}
-  .t{height:165px}
-  .dc{padding:20px 14px;border-radius:22px}
-  .dc h3{font-size:30px}
-  .pkg-btn{font-size:10.5px;padding:3px 7px}
 }
 @media (prefers-reduced-motion:reduce){
   *{animation:none!important;transition:none!important}
@@ -294,7 +263,7 @@ footer .w{display:flex;justify-content:space-between;align-items:center;flex-wra
   <div>
     <p class="eye" data-r>Movies · Series · Music · Synced Lyrics · Downloads</p>
     <h1><span class="ln"><span style="--i:0">Watch.</span></span><span class="ln"><span style="--i:1">Listen.</span></span><span class="ln"><span class="hl" style="--i:2">Download.</span></span></h1>
-    <p class="sub" data-r style="--dl:.5s">Ovilo puts your cinema streaming, high-fidelity music with synchronized lyrics, and downloads into one lightning-fast player. Developed by RirTech. Free on Web, Windows, Linux and Android.</p>
+    <p class="sub" data-r style="--dl:.5s">Ovilo puts your cinema streaming, high-fidelity music with synchronized lyrics, and downloads into one lightning-fast player. Developed by rirdesign. Free on Web, Windows, Linux and Android.</p>
     <div data-r style="--dl:.65s;display:flex;gap:12px;flex-wrap:wrap;align-items:center">
       <a class="btn" href="app/index.html" style="background:#ffd24d;color:#141414;font-weight:800;box-shadow:0 10px 28px rgba(255,210,77,0.35);padding:0 26px;display:inline-flex;align-items:center;gap:8px">
         <span>Try now on web</span>
@@ -787,7 +756,7 @@ footer .w{display:flex;justify-content:space-between;align-items:center;flex-wra
     <p class="eye" data-r>Support &amp; Feedback</p>
     <h2 data-r style="font-size:clamp(44px,7vw,92px)">Found<br>a bug?<br><span class="hl">Tell us.</span></h2>
     <p data-r style="color:var(--vr);margin-top:24px;max-width:44ch">
-      Ovilo is developed with care by <b>RirTech</b>. If you encountered an issue, have an idea, or want to contribute, drop us a line below or reach out directly.
+      Ovilo is developed with care by <b>rirdesign</b>. If you encountered an issue, have an idea, or want to contribute, drop us a line below or reach out directly.
     </p>
 
     <div class="ct" style="margin-top:28px">
@@ -800,7 +769,7 @@ footer .w{display:flex;justify-content:space-between;align-items:center;flex-wra
         <span>↗</span>
       </a>
       <a data-r style="background:var(--pe);--dl:.2s" href="mailto:rir.tech.official@gmail.com?subject=Ovilo%20App%20Inquiry">
-        <div><b>rir.tech.official@gmail.com</b><small>Email Developer (RirTech)</small></div>
+        <div><b>rir.tech.official@gmail.com</b><small>Email Developer (rirdesign)</small></div>
         <span>↗</span>
       </a>
     </div>
@@ -854,7 +823,7 @@ footer .w{display:flex;justify-content:space-between;align-items:center;flex-wra
 <!-- Footer -->
 <footer><div class="w">
   <div>
-    <span>&copy; 2026 Ovilo · Developed by <b>RirTech</b> · </span>
+    <span>&copy; 2026 Ovilo · Developed by <b>rirdesign</b> · </span>
     <a href="mailto:rir.tech.official@gmail.com" style="color:var(--ye)">rir.tech.official@gmail.com</a>
   </div>
   <div style="display:flex;gap:20px;align-items:center">
