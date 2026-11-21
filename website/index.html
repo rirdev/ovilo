@@ -229,11 +229,16 @@ footer .w{display:flex;justify-content:space-between;align-items:center;flex-wra
 </head>
 <body>
 <!-- Netlify Form Pre-Processing Hook -->
-<form name="contact" netlify netlify-honeypot="bot-field" hidden>
+<form name="contact" method="POST" data-netlify="true" hidden>
   <input type="hidden" name="form-name" value="contact" />
   <input type="text" name="name" />
   <input type="email" name="email" />
-  <input type="text" name="purpose" />
+  <select name="purpose">
+    <option value="Bug Report">Bug Report</option>
+    <option value="Work Together / Collaboration">Work Together / Collaboration</option>
+    <option value="Feature Suggestion">Feature Suggestion</option>
+    <option value="Other / General">General Inquiry</option>
+  </select>
   <input type="text" name="subject" />
   <textarea name="message"></textarea>
 </form>
