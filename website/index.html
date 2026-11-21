@@ -777,7 +777,7 @@ footer .w{display:flex;justify-content:space-between;align-items:center;flex-wra
 
   <!-- Netlify Form Integration -->
   <div data-r style="--dl:.15s">
-    <form name="contact" method="POST" data-netlify="true" netlify action="/#help" class="contact-form">
+    <form name="contact" id="contact-form" method="POST" data-netlify="true" netlify action="/" class="contact-form">
       <input type="hidden" name="form-name" value="contact" />
       <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:4px">
         <h3 style="font-size:24px">Contact Developer</h3>
@@ -866,6 +866,34 @@ try{
     document.getElementById("mainbtn").textContent="Download for "+os.charAt(0).toUpperCase()+os.slice(1)+" ↗";
   }
 }catch(e){}
+
+var cf=document.getElementById("contact-form");
+if(cf){
+  cf.addEventListener("submit",function(e){
+    e.preventDefault();
+    var btn=cf.querySelector("button[type=submit]");
+    var origText=btn.innerHTML;
+    btn.disabled=true;
+    btn.innerHTML="Sending...";
+    var fd=new FormData(cf);
+    var body=new URLSearchParams(fd).toString();
+    fetch("/",{
+      method:"POST",
+      headers:{"Content-Type":"application/x-www-form-urlencoded"},
+      body:body
+    }).then(function(r){
+      if(r.ok){
+        cf.innerHTML='<div style="text-align:center;padding:34px 14px"><div style="font-size:38px;margin-bottom:12px">✨</div><h3 style="font-size:22px;margin-bottom:8px">Message Sent!</h3><p style="color:var(--vr);font-size:15px;line-height:1.5">Thank you for reaching out. We have received your inquiry and will reply shortly.</p></div>';
+      }else{
+        throw new Error("HTTP "+r.status);
+      }
+    }).catch(function(){
+      btn.disabled=false;
+      btn.innerHTML=origText;
+      alert("Submission encountered an issue. You can email us directly at rir.tech.official@gmail.com");
+    });
+  });
+}
 })();
 </script>
 </body>
