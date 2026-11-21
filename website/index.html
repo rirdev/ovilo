@@ -246,6 +246,7 @@ footer .w{display:flex;justify-content:space-between;align-items:center;flex-wra
       <a href="#get">Download</a>
       <a href="#guide">Guide</a>
       <a href="#help">Support</a>
+      <a href="contact.html">Contact</a>
       <a href="https://github.com/rirdev/ovilo" target="_blank" rel="noopener" style="display:flex;align-items:center;gap:5px">
         <span>GitHub</span><span style="font-size:12px;opacity:.7">↗</span>
       </a>
@@ -775,34 +776,25 @@ footer .w{display:flex;justify-content:space-between;align-items:center;flex-wra
     </div>
   </div>
 
-  <!-- Netlify Form Integration -->
+  <!-- Contact Action Card -->
   <div data-r style="--dl:.15s">
-    <form name="contact" id="contact-form" method="POST" data-netlify="true" netlify action="/" class="contact-form">
-      <input type="hidden" name="form-name" value="contact" />
-      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:4px">
-        <h3 style="font-size:24px">Contact Developer</h3>
-        <span style="font-size:11px;font-weight:700;color:var(--mi);background:rgba(168,230,195,0.12);padding:3px 10px;border-radius:99px">Netlify Form</span>
+    <div style="background:var(--sf);border:1px solid var(--ln);border-radius:32px;padding:42px 32px;display:flex;flex-direction:column;gap:18px;height:100%;justify-content:center;box-sizing:border-box">
+      <div style="width:54px;height:54px;border-radius:18px;background:var(--ye);color:var(--ink);display:grid;place-items:center;font-size:26px">💬</div>
+      <h3 style="font-size:clamp(26px,3vw,34px);line-height:1.1">Let's build together or fix an issue</h3>
+      <p style="color:var(--vr);font-size:15px;line-height:1.6">
+        Have feedback, discovered a bug, or interested in collaborating on Ovilo? Visit our dedicated contact portal to message the developer directly.
+      </p>
+      <div style="margin-top:6px">
+        <a class="btn" href="contact.html" style="background:var(--ye);color:var(--ink);font-weight:800;font-size:15px;padding:0 26px;height:52px;display:inline-flex;align-items:center;justify-content:center;gap:10px;border-radius:99px;width:100%;box-shadow:0 10px 28px rgba(255,210,77,0.25)">
+          <span>Contact me for bugs or work together</span>
+          <span style="font-size:18px">→</span>
+        </a>
       </div>
-      <p style="color:var(--vr);font-size:13px;margin-bottom:6px">Directly submitted to our dashboard. We reply to all inquiries.</p>
-      
-      <div class="f-group">
-        <label for="c-name">Your Name</label>
-        <input type="text" id="c-name" name="name" required placeholder="Alex Rivera" />
+      <div style="display:flex;align-items:center;gap:12px;margin-top:4px;padding-top:16px;border-top:1px solid var(--ln)">
+        <span style="width:8px;height:8px;border-radius:50%;background:#48bb78;display:inline-block"></span>
+        <span style="font-size:13px;color:var(--vr)">Replies directly via email · Usually within 24–48h</span>
       </div>
-      <div class="f-group">
-        <label for="c-email">Email Address</label>
-        <input type="email" id="c-email" name="email" required placeholder="alex@domain.com" />
-      </div>
-      <div class="f-group">
-        <label for="c-subject">Subject</label>
-        <input type="text" id="c-subject" name="subject" placeholder="Bug report / Feature idea / Inquiry" />
-      </div>
-      <div class="f-group">
-        <label for="c-message">Message</label>
-        <textarea id="c-message" name="message" rows="4" required placeholder="Write your message here..."></textarea>
-      </div>
-      <button type="submit" class="btn" style="width:100%;margin-top:6px">Send Message ↗</button>
-    </form>
+    </div>
   </div>
 </div></section>
 
@@ -829,6 +821,7 @@ footer .w{display:flex;justify-content:space-between;align-items:center;flex-wra
   <div style="display:flex;gap:20px;align-items:center">
     <a href="https://github.com/rirdev/ovilo" target="_blank" rel="noopener">GitHub</a>
     <a href="https://github.com/rirdev/ovilo/releases" target="_blank" rel="noopener">Releases</a>
+    <a href="contact.html">Contact</a>
     <a href="#top">Back to top ↑</a>
   </div>
 </div></footer>
@@ -866,34 +859,6 @@ try{
     document.getElementById("mainbtn").textContent="Download for "+os.charAt(0).toUpperCase()+os.slice(1)+" ↗";
   }
 }catch(e){}
-
-var cf=document.getElementById("contact-form");
-if(cf){
-  cf.addEventListener("submit",function(e){
-    e.preventDefault();
-    var btn=cf.querySelector("button[type=submit]");
-    var origText=btn.innerHTML;
-    btn.disabled=true;
-    btn.innerHTML="Sending...";
-    var fd=new FormData(cf);
-    var body=new URLSearchParams(fd).toString();
-    fetch("/",{
-      method:"POST",
-      headers:{"Content-Type":"application/x-www-form-urlencoded"},
-      body:body
-    }).then(function(r){
-      if(r.ok){
-        cf.innerHTML='<div style="text-align:center;padding:34px 14px"><div style="font-size:38px;margin-bottom:12px">✨</div><h3 style="font-size:22px;margin-bottom:8px">Message Sent!</h3><p style="color:var(--vr);font-size:15px;line-height:1.5">Thank you for reaching out. We have received your inquiry and will reply shortly.</p></div>';
-      }else{
-        throw new Error("HTTP "+r.status);
-      }
-    }).catch(function(){
-      btn.disabled=false;
-      btn.innerHTML=origText;
-      alert("Submission encountered an issue. You can email us directly at rir.tech.official@gmail.com");
-    });
-  });
-}
 })();
 </script>
 </body>
