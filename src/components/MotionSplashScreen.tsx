@@ -21,6 +21,7 @@ export const MotionSplashScreen: React.FC<MotionSplashScreenProps> = ({
 
   const handleComplete = useCallback(async (action: any) => {
     try {
+      localStorage.setItem('ovilo_motion_splash_v0.2.0_seen', 'true');
       localStorage.setItem('ovilo_motion_splash_seen', 'true');
       localStorage.setItem('ovilo_onboarding_completed', 'true');
     } catch {}

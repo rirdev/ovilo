@@ -54,7 +54,7 @@ const AppContent: React.FC = () => {
   const [isAppLoading, setIsAppLoading] = useState<boolean>(true);
   const [showMotionSplash, setShowMotionSplash] = useState<boolean>(() => {
     try {
-      return localStorage.getItem('ovilo_motion_splash_seen') !== 'true';
+      return localStorage.getItem('ovilo_motion_splash_v0.2.0_seen') !== 'true';
     } catch {
       return false;
     }

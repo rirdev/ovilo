@@ -68,13 +68,10 @@ export const InfinityLoop: React.FC<InfinityLoopProps> = ({
 export const AppStartupSplash: React.FC<{ isLoading: boolean }> = ({ isLoading }) => {
   const { theme } = useTheme();
   const isLight = theme === 'light';
-  const isCobalt = theme === 'cobalt';
 
   const bgClass = isLight
     ? 'bg-[#FAFAFA] text-neutral-900'
-    : isCobalt
-    ? 'bg-[#090A0F] text-[#60A5FA]'
-    : 'bg-[#090A0F] text-slate-100';
+    : 'bg-[#0d0d0d] text-slate-100';
 
   return (
     <AnimatePresence>
@@ -93,14 +90,14 @@ export const AppStartupSplash: React.FC<{ isLoading: boolean }> = ({ isLoading }
             transition={{ duration: 0.5, ease: 'easeOut' }}
             className="relative flex items-center justify-center mb-6"
           >
-            <div className="absolute w-24 h-24 rounded-full bg-[#2F6BFE]/20 blur-xl"></div>
-            <div className="relative w-16 h-16 rounded-2xl bg-gradient-to-br from-[#2F6BFE] to-[#1E40AF] flex items-center justify-center shadow-xl shadow-[#2F6BFE]/30 overflow-hidden border border-white/10">
+            <div className="absolute w-24 h-24 rounded-full bg-[#FFD54F]/15 blur-2xl"></div>
+            <div className="relative w-16 h-16 rounded-2xl bg-[#141414] flex items-center justify-center shadow-xl shadow-black/60 overflow-hidden border border-white/10">
               <img
                 src="/logos/logo.png"
                 alt="Ovilo"
                 className="w-10 h-10 object-contain drop-shadow"
                 onError={(e) => {
-                  e.currentTarget.style.display = 'none';
+                  (e.currentTarget as HTMLImageElement).src = '/logos/app_logo.png';
                 }}
               />
             </div>
@@ -116,7 +113,7 @@ export const AppStartupSplash: React.FC<{ isLoading: boolean }> = ({ isLoading }
             <h1 className="text-2xl font-black tracking-tight text-white font-['Plus_Jakarta_Sans',sans-serif]">
               Welcome to Ovilo
             </h1>
-            <p className="text-xs text-slate-400 font-medium tracking-wide">
+            <p className="text-xs text-neutral-400 font-medium tracking-wide">
               Universal Media & Streaming Hub
             </p>
           </motion.div>
@@ -127,7 +124,7 @@ export const AppStartupSplash: React.FC<{ isLoading: boolean }> = ({ isLoading }
             animate={{ opacity: 1 }}
             transition={{ delay: 0.3, duration: 0.4 }}
           >
-            <Wave className="h-8 w-20 text-[#60A5FA]" />
+            <Wave className="h-8 w-20 text-[#FFD54F]" />
           </motion.div>
         </motion.div>
       )}
