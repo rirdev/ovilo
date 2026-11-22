@@ -28,6 +28,7 @@ import { MusicPlayerDock } from './components/MusicPlayerDock';
 import { KinoNotch } from './components/KinoNotch';
 import { LyricsOverlay } from './components/LyricsOverlay';
 import { AppStartupSplash } from './components/InfinityLoader';
+import { MotionSplashScreen } from './components/MotionSplashScreen';
 import { WelcomeOnboardingModal } from './components/WelcomeOnboardingModal';
 import { UpdateNotificationModal } from './components/UpdateNotificationModal';
 import {
@@ -51,6 +52,13 @@ const AppContent: React.FC = () => {
   const { theme, setTheme, toggleTheme } = useTheme();
   const [activeTab, setActiveTab] = useState<string>('dashboard');
   const [isAppLoading, setIsAppLoading] = useState<boolean>(true);
+  const [showMotionSplash, setShowMotionSplash] = useState<boolean>(() => {
+    try {
+      return localStorage.getItem('ovilo_motion_splash_seen') !== 'true';
+    } catch {
+      return false;
+    }
+  });
   const [showOnboarding, setShowOnboarding] = useState<boolean>(false);
   const [userProfile, setUserProfile] = useState<UserProfile | null>(() => getLocalProfile());
   const [selectedMedia, setSelectedMedia] = useState<MediaItem | null>(null);
@@ -521,13 +529,16 @@ const AppContent: React.FC = () => {
       if (isMounted) {
         setIsAppLoading(false);
         try {
+          if (showMotionSplash) return;
           const hasCompletedOnboarding = localStorage.getItem('ovilo_onboarding_completed') === 'true';
           const profile = getLocalProfile();
           if (!hasCompletedOnboarding || !profile) {
             setShowOnboarding(true);
           }
         } catch {
-          setShowOnboarding(true);
+          if (!showMotionSplash) {
+            setShowOnboarding(true);
+          }
         }
       }
     }, 2600);
@@ -975,8 +986,22 @@ const AppContent: React.FC = () => {
       {/* Time-Synced Lyrics Drawer / Modal */}
       <LyricsOverlay />
 
-      {/* App Initial Startup Infinity Loader */}
-      <AppStartupSplash isLoading={isAppLoading} />
+      {/* First-Launch Motion Splash Screen (Showreel -> Sign In) */}
+      {showMotionSplash && (
+        <MotionSplashScreen
+          isOpen={showMotionSplash}
+          onFinish={(profile) => {
+            setShowMotionSplash(false);
+            setIsAppLoading(false);
+            if (profile) {
+              setUserProfile(profile);
+            }
+          }}
+        />
+      )}
+
+      {/* App Initial Startup Infinity Loader (Subsequent regular launches) */}
+      {!showMotionSplash && <AppStartupSplash isLoading={isAppLoading} />}
 
       {/* Welcome Onboarding Modal for First Time Launch / Sign In */}
       <WelcomeOnboardingModal

@@ -1,6 +1,6 @@
 [package]
 name = "ovilo"
-version = "0.1.0"
+version = "0.2.0"
 description = "OVILO - Cinema Streaming & Media Explorer"
 authors = ["OVILO"]
 edition = "2021"

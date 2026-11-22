@@ -1,6 +1,6 @@
 import { decodeFirestoreFields } from './firebaseSync';
 
-export const APP_CURRENT_VERSION = '0.1.0';
+export const APP_CURRENT_VERSION = '0.2.0';
 
 export interface AppUpdateData {
   version: string;
