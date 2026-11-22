@@ -154,7 +154,7 @@ footer .w{display:flex;justify-content:space-between;align-items:center;flex-wra
         </div>
         <p style="color:var(--vr);font-size:14px;margin-bottom:8px">Messages are submitted securely and sent straight to the developer dashboard.</p>
 
-        <form name="contact" id="contact-form" method="POST" data-netlify="true" action="/" class="contact-form">
+        <form name="contact" id="contact-form" method="POST" netlify data-netlify="true" action="/contact.html" class="contact-form">
           <input type="hidden" name="form-name" value="contact" />
 
           <div class="f-group">
@@ -254,7 +254,7 @@ footer .w{display:flex;justify-content:space-between;align-items:center;flex-wra
       }
 
       // Try primary Netlify endpoint first
-      fetch(window.location.pathname, {
+      fetch("/contact.html", {
         method: "POST",
         headers: { "Content-Type": "application/x-www-form-urlencoded" },
         body: body
